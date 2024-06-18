@@ -1,0 +1,6607 @@
+org 27000		;SOURCE CODE FOR V 1.3, a bit tangled and wonky in places.  OCT 2013.
+	ld a,244
+	ld (23739),a		;this sys var is often poked with 111 to save loaders, this restores ROM printing
+	ld hl,kill_sprite
+	ld hl,number_of_baddies
+	ld hl,badtab
+	ld hl,(23672)		;set random seeds for Patrick Rak's XOR SHIFT Generator
+	ld (rnd+1),hl
+	ld a,r
+	ld e,a
+	ld a,(23560)
+	ld d,a
+	ld (rnd+4),de	;random seeds now set
+	;
+start	ld hl,15616-256
+	ld (23606),hl	;always use ROM font in editor	
+	ld (get_char+1),hl
+	ld a,(editor_border)
+	out (254),a
+	ld (23693),a	;permanent current colours
+	call 8859	;ROM routine to set lower screen and border colours
+	call cls
+	ld a,(editor_paper)
+	call pf2	;paperfill
+	ld ix,introstring
+	call print_string
+	call any_23560
+	call branch1
+	ld a,(23560)
+	cp 's'		;S key pressed, we are returning to BASIC
+	ret z
+	jp start
+	;
+branch1	cp '1'
+	jp z,sprite_designer
+	cp '2'
+	jp z,udg_designer
+	cp '3'
+	jp z,font_designer
+	cp '4'
+	jp z,map_designer_intro_screen
+	cp '5'
+	jp z,event_manager
+	cp '6'
+	jp z,setting_counters
+	cp '7'
+	jp z,setting_variables
+	cp '8'
+	jp z,set_screen_names
+	cp '9'
+	jp z,set_effects
+	cp 't'
+	jp z,testgame
+	cp 'i'
+	jp z,introscreen_editor
+	cp 'c'
+	jp z,gamecolours
+	cp 's'
+	jp z,save_game
+	ret
+	;
+save_game
+	call savemap
+	call cls
+	ld a,(editor_paper)
+	call pf2
+	ld ix,savestr
+	call print_string
+	call no_key
+	call any_23560
+	ret
+	;
+testgame
+	call savemap
+	call cls
+	ld a,(editor_paper)
+	call pf2
+	ld ix,teststring
+	call print_string
+	call any_23560
+	cp 'e'
+	ret z
+	call gamestart
+	ld hl,mapstore		;put untainted map back in place
+	ld de,map1
+	ld bc,6345
+	ldir
+	ret
+	;
+savemap	ld hl,map1		;puts most up to date map into mapstore
+	ld de,mapstore
+	ld bc,6345
+	ldir
+	ret
+	;
+gamecolours			;editing some game paper colours
+	call cls
+	ld a,(editor_paper)
+	call pf2
+	ld ix,gamecolourstr
+	call print_string
+	call gcmain
+	cp 'e'
+	ret z
+	jr gamecolours
+	;
+gcmain	call any_23560
+	cp 'e'
+	ret z
+	cp '1'
+	jp z,edit_introscreencolour
+	cp '2'
+	jp z,edit_gamecolour
+	cp '3'
+	jp z,edit_gameovercolour
+	cp '4'
+	jp z,edit_gamecomplecolour
+	ret
+	;
+edit_introscreencolour
+	call cls
+	ld ix,string1
+	call print_string
+	ld ix,intro_screen_colour
+	call edit_colours
+	ret
+edit_gamecolour
+	call cls
+	ld ix,string2
+	call print_string
+	ld ix,game_colour
+	call edit_colours
+	ld a,(ix+0)
+	and 7
+	ld (game_ink),a
+	ld a,(ix+0)
+	and 56
+	rrca
+	rrca
+	rrca
+	ld (game_border),a
+	ret
+edit_gameovercolour
+	call cls
+	ld ix,string3
+	call print_string
+	ld ix,game_over_colour
+	call edit_colours
+	ret
+edit_gamecomplecolour
+	call cls
+	ld ix,string4
+	call print_string
+	ld ix,game_complete_colour
+	call edit_colours
+	ret
+	;
+edit_colours	;arrive with IX pointing at colour we want to edit
+	push ix
+	ld ix,gcedstr
+	call print_string
+	pop ix
+	ld a,(ix+0)
+	call pf2
+	rrca
+	rrca
+	rrca
+	and 7
+	out (254),a
+	call any_23560
+	cp 'e'
+	ret z
+	call otherkey
+	jr edit_colours
+	;
+otherkey
+	cp 'i'
+	jr z,inky
+	cp 'p'
+	jr z,papery
+	cp 'b'
+	jr z,brighty
+	cp 'f'
+	jr z,flashy
+	ret
+inky	ld a,(ix+0)
+	inc a
+	and 7
+	ld b,a
+	ld a,(ix+0)
+	and 248
+	or b
+	ld (ix+0),a
+	ret
+papery	ld a,(ix+0)
+	add a,8
+	and 56
+	ld b,a
+	ld a,(ix+0)
+	and 199
+	or b
+	ld (ix+0),a
+	ret
+brighty
+	ld a,(ix+0)
+	xor 64
+	ld (ix+0),a
+	ret
+flashy	ld a,(ix+0)
+	xor 128
+	ld (ix+0),a
+	ret
+	;
+introscreen_editor
+	xor a
+	ld (inputx),a
+	ld (imy),a
+ieelp2	call cls
+	ld a,(editor_paper)
+	call pf2
+ieelp	ld hl,22528+512
+ielp	ld (hl),104
+	inc l
+	jr nz,ielp
+	ld ix,introedstr
+	call print_string
+	ld ix,introscreen_text
+	ld de,20480
+	call print_seg
+	call iemain
+	cp 13
+	jr z,ret3
+	jr ieelp
+	;
+ret3
+	ld de,18432
+	ld ix,sure
+	call print_string
+	call any_23560
+	cp 'y'
+	ret z
+	jp ieelp2
+	;
+iemain	ld a,(imy)		;get marker position
+	add a,a		;x2
+	add a,a		;x4
+	add a,a		;x8
+	add a,a		;x16
+	add a,a		;x32
+	ld l,a
+	ld a,(inputx)	;add column number
+	add a,l		;
+	ld l,a
+	ld h,90		;point hl at bottom segment in attributes
+	set 7,(hl)	;make marker flash
+	ld h,127	;point hl at correct place in text
+	call any_23560
+	cp 13		;enter exits
+	ret z
+	cp 12
+	jr z,delete_letter2
+	cp 8
+	jr z,charleft2
+	cp 9
+	jr z,charright2
+	cp 11
+	jr z,icup
+	cp 10
+	jr z,ichardown
+	cp 32
+	ret c
+nl2	ld (hl),a	;insert new letter
+	push af
+	inc l
+	ld a,l
+	and 31
+	ld (inputx),a
+	pop af
+	ret
+	;
+delete_letter2
+	push af
+	ld (hl),32
+	dec l
+	ld a,l
+	and 31
+	ld (inputx),a
+	pop af
+	ret
+	;
+charleft2
+	push af
+	dec l
+	ld a,l
+	and 31
+	ld (inputx),a
+	pop af
+	ret
+	;
+charright2
+	push af
+	inc l
+	ld a,l
+	and 31
+	ld (inputx),a
+	pop af
+	ret
+	;
+icup	ld a,(imy)
+	dec a
+	and 7
+	ld (imy),a
+	ret
+ichardown
+	ld a,(imy)
+	inc a
+	and 7
+	ld (imy),a
+	ret
+	;
+imy	defb	0	;marker y
+	;
+set_effects
+	call cls
+	ld a,(editor_paper)
+	call pf2
+	ld ix,seffstr
+	call print_string
+	call display_level_fail_effect1
+	call display_level_fail_effect2
+	call display_level_win_effect1
+	call display_level_win_effect2
+	call seffmain
+	cp 'e'
+	jp z,poke_then_ret2menu
+	jr set_effects
+	;
+poke_then_ret2menu	;poke the chosen addresses into the game
+	ld a,(fail_effect1)
+	add a,a		;byte to word
+	ld h,0
+	ld l,a
+	ld de,specialFX_tab
+	add hl,de
+	ld de,dpok1+1
+	ldi
+	ldi		;poke effect routine address into game
+	ld a,(fail_effect2)
+	add a,a		;byte to word
+	ld h,0
+	ld l,a
+	ld de,specialFX_tab
+	add hl,de
+	ld de,dpok2+1
+	ldi
+	ldi		;poke effect routine address into game
+	ld a,(win_effect1)
+	add a,a		;byte to word
+	ld h,0
+	ld l,a
+	ld de,specialFX_tab
+	add hl,de
+	ld de,lcpok1+1
+	ldi
+	ldi		;poke effect routine address into game
+	ld a,(win_effect2)
+	add a,a		;byte to word
+	ld h,0
+	ld l,a
+	ld de,specialFX_tab
+	add hl,de
+	ld de,lcpok2+1
+	ldi
+	ldi		;poke effect routine address into game
+	ret		;RET to menu
+	;
+seffmain
+	call any_23560
+	cp '1'
+	jp z,fx1_select
+	cp '2'
+	jp z,fx2_select
+	cp '3'
+	jp z,fx3_select
+	cp '4'
+	jp z,fx4_select
+	ret	
+	;
+fx1_select	;scroll through choices of possible Special FX
+	ld a,(fail_effect1)
+	inc a
+	cp number_of_FX		;have we reached the end of the routines?
+	call nc,reset_byte
+	ld (fail_effect1),a
+	call display_level_fail_effect1
+	ret
+fx2_select	;scroll through choices of possible Special FX
+	ld a,(fail_effect2)
+	inc a
+	cp number_of_FX		;have we reached the end of the routines?
+	call nc,reset_byte
+	ld (fail_effect2),a
+	call display_level_fail_effect2
+	ret
+fx3_select	;scroll through choices of possible Special FX
+	ld a,(win_effect1)
+	inc a
+	cp number_of_FX		;have we reached the end of the routines?
+	call nc,reset_byte
+	ld (win_effect1),a
+	call display_level_win_effect1
+	ret
+fx4_select	;scroll through choices of possible Special FX
+	ld a,(win_effect2)
+	inc a
+	cp number_of_FX		;have we reached the end of the routines?
+	call nc,reset_byte
+	ld (win_effect2),a
+	call display_level_win_effect2
+	ret
+	;
+display_level_fail_effect1
+	ld a,(fail_effect1)
+	inc a		;make number at least 1
+	ld b,a
+	ld ix,specialFX_strings
+	call findstring
+	ld de,16480
+	call print_string
+	ret
+display_level_fail_effect2
+	ld a,(fail_effect2)
+	inc a		;make number at least 1
+	ld b,a
+	ld ix,specialFX_strings
+	call findstring
+	ld de,16544
+	call print_string
+	ret
+display_level_win_effect1
+	ld a,(win_effect1)
+	inc a		;make number at least 1
+	ld b,a
+	ld ix,specialFX_strings
+	call findstring
+	ld de,16608
+	call print_string
+	ret
+display_level_win_effect2
+	ld a,(win_effect2)
+	inc a		;make number at least 1
+	ld b,a
+	ld ix,specialFX_strings
+	call findstring
+	ld de,18464
+	call print_string
+	ret
+	;
+fail_effect1	defb	0
+fail_effect2	defb	0
+win_effect1	defb	0
+win_effect2	defb	0
+	;
+event_manager
+	call cls
+	ld a,(editor_paper)
+	call pf2
+	ld ix,eventintrostr
+	call print_string
+	call display_game_completed_effect
+	call display_game_over_effect
+	call display_player_screen_edge_effect
+	call display_baddy_screen_edge_effect
+emlp	call eventmain
+	cp 'e'
+	jp z,ret_to_menu2
+	jr emlp
+eventmain
+	call any_23560
+	cp '1'
+	jp z,game_complete_select
+	cp '2'
+	jp z,game_over_select
+	cp '3'
+	jp z,player_screen_edge_manager
+	cp '4'
+	jp z,baddy_screen_edge_manager
+	ret
+	;
+baddy_screen_edge_manager
+	ld a,(baddy_screen_edge_byte)
+	inc a
+	cp number_of_screen_edge_routines
+	call nc,reset_byte
+	ld (baddy_screen_edge_byte),a
+	call display_baddy_screen_edge_effect
+	ret
+	;
+player_screen_edge_manager
+	ld a,(player_screen_edge_byte)
+	inc a
+	cp number_of_screen_edge_routines
+	call nc,reset_byte
+	ld (player_screen_edge_byte),a
+	call display_player_screen_edge_effect
+	ret
+	;
+game_over_select
+	ld a,(dead_effect_byte)
+	inc a
+	cp number_of_game_completed_routines
+	call nc,reset_byte
+	ld (dead_effect_byte),a
+	call display_game_over_effect
+	ret
+	;
+game_complete_select	;scroll through choices of possible ways to end the game
+	ld a,(game_complete_effect_byte)
+	inc a
+	cp number_of_game_completed_routines	;have we reached the end of the routines?
+	call nc,reset_byte
+	ld (game_complete_effect_byte),a
+	call display_game_completed_effect
+	ret
+	;
+display_game_completed_effect
+	ld a,(game_complete_effect_byte)
+	inc a		;make number at least 1
+	ld b,a
+	ld ix,game_complete_strings
+	call findstring
+	ld de,16384+96
+	call print_string
+	ret
+	;
+display_game_over_effect
+	ld a,(dead_effect_byte)
+	inc a		;make number at least 1
+	ld b,a
+	ld ix,game_complete_strings
+	call findstring
+	ld de,16384+192
+	call print_string
+	ret
+	;
+display_player_screen_edge_effect
+	ld a,(player_screen_edge_byte)
+	inc a		;make number at least 1
+	ld b,a
+	ld ix,screen_edge_strings
+	call findstring
+	ld de,18432+32
+	call print_string
+	ret
+	;
+display_baddy_screen_edge_effect
+	ld a,(baddy_screen_edge_byte)
+	inc a
+	ld b,a
+	ld ix,screen_edge_strings
+	call findstring
+	ld de,18432+96+32
+	call print_string
+	ret
+	;
+reset_byte
+	xor a
+	ret
+	;
+set_screen_names	;eg level 1, central cavern etc
+	call cls
+	ld a,(editor_paper)
+	call pf2
+	call display_screen_names
+	call any_23560
+	call ssk
+	cp 'e'
+	ret z
+	jr set_screen_names
+	;
+ln_number	defb	0	;actual number of level name we're currently editing
+	;
+ssk	cp 'b'			;b is for the bottom line that appears in the in game screen
+	jr z,bpress
+	cp 'g'
+	jr z,gpress
+	cp 'c'
+	jr z,cpress
+	cp 'a'
+	jr z,apress
+	cp 's'
+	jr z,spress
+	cp 'd'
+	jr z,dpress
+	cp 58	;> than ASCII '9'
+	ret nc
+	cp 48	;<ASCII '1'
+	ret c
+	sub 48	;number here will be 48-57, convert to 0-9
+ssk2	ld (ln_number),a
+	xor a
+	ld (inputx),a	;have marker in same position each time
+	call inputter	;read keys and make a new string
+	ret
+	;
+bpress	ld a,10	;number to allow bottom line editing
+	jr ssk2
+gpress	ld a,11	;number to allow editing game over message
+	jr ssk2
+cpress	ld a,12	;number to allow editing congrats message
+	jr ssk2
+apress	ld a,13	;in game message 1
+	jr ssk2
+spress	ld a,14	;in game message 2
+	jr ssk2
+dpress	ld a,15	;in game message 3
+	jr ssk2
+	;
+inputter
+	ld ix,inputstr
+	call print_string
+	ld a,(ln_number)
+	add a,48
+	call get_char
+	call print_char
+	ld ix,inputstr2
+	call print_string
+inlp	ld hl,23104+64+64	;coloured line for the bit we're changing
+	ld b,32
+inlp2	ld (hl),104
+	inc l
+	djnz inlp2
+	ld hl,23104+64+64
+	ld a,(inputx)
+	add a,l
+	ld l,a
+	set 7,(hl)		;flashing marker
+	ld a,(ln_number)	;number 0-9
+	inc a
+	ld b,a			;b holds 1-9
+	ld ix,level_names
+	call findstring
+	ld de,20480+64+64+64
+	ld (input_pos),ix	;store address of string we're changing
+	call print_string
+	call any_23560
+	cp 13			;enter
+	ret z
+	call newletter
+	jr inlp
+	;
+newletter
+	cp 8
+	jr z,charleft
+	cp 9
+	jr z,charright
+	push af			;save ASCII
+	ld hl,(input_pos)	;point hl at the start of the string
+	ld a,(inputx)		;get current column
+	ld d,0
+	ld e,a		
+	add hl,de		;PROBABLY ORIGINALLY A BUG IN NAME INPUTTER, originally did this as an 8 bit addition, jeez
+	pop af
+	cp 12			;12 means backspace pressed
+	jr z,deleteletter
+	cp 32			;other than enter and backspace, <32 not ASCII
+	ret c
+	ld (hl),a		;insert new letter in string
+	ld a,(inputx)
+	inc a			;next column along
+	and 31
+	ld (inputx),a
+	ret
+	;
+deleteletter
+	ld (hl),32	;insert a space
+charleft		;shared bit of code
+	ld a,(inputx)
+	dec a
+	and 31
+	ld (inputx),a
+	ret
+	;
+charright
+	ld a,(inputx)
+	inc a
+	and 31
+	ld (inputx),a
+	ret
+	;
+input_pos	defw	0
+inputx	defb	0	;marker for our position in the string
+inputstr	defb	0,20,	'Input name for screen ',255
+inputstr2	defb	0,21,	'then press Enter',255
+	;
+display_screen_names
+	ld ix,screen_name_string
+	call print_string
+	ld b,16		;max 9 levels + game titler + game bottom line + game over message + Congrats message+3 in game msgs
+	ld de,16384+160-32
+	ld ix,lns	;level name strings
+dsnlp	push bc
+	push de
+	call print_string
+	inc ix			;skip over defb 255 end of string marker ready for the next one
+	pop de
+	call nextrowdown	;move de one row down
+	pop bc
+	djnz dsnlp
+	ret
+	;
+setting_variables	;number of lives, levels, timer
+	call cls
+	ld a,(editor_paper)
+	call pf2
+	ld ix,varstring
+	call print_string
+	call print_variables
+	call any_23560
+	call vark	;variable keys
+	cp 'e'
+	ret z
+	jr setting_variables
+	;
+vark	cp 't'
+	jp z,inc_timer
+	cp 'r'
+	jp z,dec_timer
+	cp 'l'
+	jp z,inc_level
+	cp 'p'
+	jp z,inc_lives
+	cp 'o'
+	jp z,dec_lives
+	ret
+	;
+inc_timer
+	ld hl,(timer_store)
+	inc hl
+	ld (timer_store),hl
+	ret
+dec_timer
+	ld hl,(timer_store)
+	dec hl
+	ld (timer_store),hl
+	ret
+	;
+inc_level
+	ld a,(final_lev_st)
+	inc a
+	ld (final_lev_st),a
+	cp 10			;max 9 allowed
+	ret c
+	ld a,1
+	ld (final_lev_st),a
+	ret
+	;
+inc_lives
+	ld a,(live_store)
+	inc a
+	ld (live_store),a
+	ret
+dec_lives
+	ld a,(live_store)
+	dec a
+	ld (live_store),a
+	ret
+	;
+print_variables
+	ld a,2
+	call 5633
+	ld de,tst
+	ld bc,3
+	call 8252
+	ld bc,(timer_store)	;this number is loaded into (timer counter) at the start of each game
+	call 6683
+	ld de,lst
+	ld bc,3
+	call 8252
+	ld b,0
+	ld a,(final_lev_st)
+	ld c,a
+	call 6683
+	ld de,lvst
+	ld bc,3
+	call 8252
+	ld b,0
+	ld a,(live_store)
+	ld c,a
+	call 6683
+	ret
+	;
+tst	defb	22,3,23
+lst	defb	22,4,23
+lvst	defb	22,5,23
+	;
+setting_counters	;if counters 1,2,3 are set to a specific block or a specific number
+	call set_normal_graphics
+	call cls
+	ld a,(editor_paper)
+	call pf2
+	ld ix,counterstring	;title info
+	call print_string
+	call any_23560
+	cp 'n'
+	jp z,increase_counter_numbers
+	cp 'b'
+	jp z,increase_block_numbers
+	cp 'e'
+	ret z	
+	jr setting_counters
+	;
+increase_block_numbers
+	xor a
+	ld (set_counters_to_blocks),a	;remove the RET instruction and open the gateway
+ibnlp	call ibk
+	cp 'e'
+	ret z
+	jr ibnlp
+	;
+ibk	call display_counter_setting	;whether block or number, display the selection
+	call any_23560
+	cp '1'
+	jr z,decb1
+	cp '2'
+	jr z,incb1
+	cp 'q'
+	jr z,decb2
+	cp 'w'
+	jr z,incb2
+	cp 'a'
+	jr z,decb3
+	cp 's'
+	jr z,incb3
+	ret
+	;
+decb1	ld a,(counter1block)
+	dec a
+	and 31
+	ld (counter1block),a
+	ret
+incb1	ld a,(counter1block)
+	inc a
+	and 31
+	ld (counter1block),a
+	ret
+decb2	ld a,(counter2block)
+	dec a
+	and 31
+	ld (counter2block),a
+	ret
+incb2	ld a,(counter2block)
+	inc a
+	and 31
+	ld (counter2block),a
+	ret
+decb3	ld a,(counter3block)
+	dec a
+	and 31
+	ld (counter3block),a
+	ret
+incb3	ld a,(counter3block)
+	inc a
+	and 31
+	ld (counter3block),a
+	ret
+	;
+increase_counter_numbers
+	ld a,201
+	ld (set_counters_to_blocks),a	;plonk at RET in to stop this routine working
+icnlp	call ick
+	cp 'e'
+	ret z
+	jr icnlp
+	;
+ick	call display_counter_setting	;print the selection
+	call any_23560
+	cp '1'
+	jr z,decc1
+	cp '2'
+	jr z,incc1
+	cp 'q'
+	jr z,decc2
+	cp 'w'
+	jr z,incc2
+	cp 'a'
+	jr z,decc3
+	cp 's'
+	jr z,incc3
+	ret
+	;
+decc1	ld hl,(c1pok)
+	dec hl
+	ld (c1pok),hl
+	ret
+incc1	ld hl,(c1pok)
+	inc hl
+	ld (c1pok),hl
+	ret
+decc2	ld hl,(c2pok)
+	dec hl
+	ld (c2pok),hl
+	ret
+	;
+incc2	ld hl,(c2pok)
+	inc hl
+	ld (c2pok),hl
+	ret
+decc3	ld hl,(c3pok)
+	dec hl
+	ld (c3pok),hl
+	ret
+	;
+incc3	ld hl,(c3pok)
+	inc hl
+	ld (c3pok),hl
+	ret
+	;
+display_counter_setting
+	call clear2seg			;clears the bottom 2 segments
+	ld ix,contstr			;common instruction string for both blocks and numbers
+	call print_string
+	ld a,(set_counters_to_blocks)
+	or a	;zero means set to blocks, <> means 201, and set to a number
+	jr nz,display_counter_numbers
+display_counter_blocks		;we're using blocks to set counters
+	ld ix,counterblockstr
+	call print_string
+	;
+	ld ix,blockplaces
+	ld hl,counter1block
+	;
+	ld b,3
+	;
+cbllp	push bc			;save counter
+	push hl			;save counternumber pointer
+	ld a,(hl)		;get colour	
+	ld (cpk+1),a
+	call get_block		;point HL at correct block graphics
+	ld d,(ix+1)
+	ld e,(ix+0)		;point DE at screen
+	call print_char		;print on screen
+	call screen2att		;convert HL into an attr address
+cpk	ld a,0			;block number poked in here
+	push hl
+	call get_block_colour
+	pop hl
+	ld (hl),a		;colour is poked in here, lazy & rubbish
+	pop hl
+	inc hl			;next block
+	pop bc
+	inc ix
+	inc ix
+	djnz cbllp
+	;
+	ret
+	;
+blockplaces	defw	18464+25
+		defw	18464+25+32
+		defw	18464+25+64
+	;
+display_counter_numbers
+	ld ix,counternumstr
+	call print_string
+	ld a,2
+	call 5633
+	ld ix,c1pok
+dcnlp	ld de,dcnatt
+	ld bc,3
+	call 8252
+	ld c,(ix+0)
+	ld b,(ix+1)
+	call 6683
+	inc ix
+	inc ix
+	ld a,(dcnatt+1)	;ycor we're printing at
+	inc a
+	ld (dcnatt+1),a
+	cp 12
+	jr nz,dcnlp
+	ld a,9		;job done, back to start
+	ld (dcnatt+1),a
+	ret
+	;
+dcnatt	defb	22,9,19	;print at, row 9, column 18
+	;
+map_designer
+	call set_normal_graphics
+	xor a
+	ld (ret_flag),a
+	ld hl,graphics
+	ld (get_block+1),hl
+	ld a,201
+	ld (colpok),a
+	call cls
+	ld a,(editor_paper)
+	call pf2
+	ld ix,mapstring
+	call print_string
+	;
+	ld a,(mx)
+	ld (omx),a
+	ld a,(my)
+	ld (omy),a
+	call get_level_screen	;find correct map and ldir it in place
+maplp	call draw_designer_screen
+	call draw_mapper
+	call print_current_block
+	call keys2
+	call delete_mapper	;unset flashing square
+	ld a,(ret_flag)
+	or a
+	jp nz,mapout
+	jr maplp
+	;
+mapout	;ok we're leaving the map designer, so ldir our new map into storage
+	call find_screen	;point hl at correct place in map library
+	ld de,map_book
+	ex de,hl		;hl pointing at map_book, de at place in library
+	ld bc,705
+	ldir			;and ldir it in place
+	jp ret_to_menu3
+	;
+map_designer_intro_screen	;shows options and 
+	call cls
+	ld a,(editor_paper)
+	call pf2
+	ld ix,mdisstr
+	call print_string
+mdilp	call any_23560
+	cp 'e'
+	ret z
+	cp 58			;not higher than '9'
+	jr nc,mdilp
+	cp 49			;not lower than 1
+	jr c,mdilp
+	push af
+	ld (screenstrpoke),a
+	call cls
+	ld a,71
+	call pf2
+	ld ix,screenstr
+	call print_string
+	pop af
+	sub 48			;convert to number 1-9
+	ld (level),a
+	call any_23560
+	cp 'e'			;e to exit
+	ret z
+	call map_designer	;actually do the screen now
+	jr map_designer_intro_screen
+	;
+screenstr	defb	4,11,'You are editing SCREEN '
+screenstrpoke	defb	'0 '
+		defb	3,13,'E to exit, any key to edit',255
+	;
+print_current_block
+	ld a,(udgno)
+	call get_block
+	ld de,20480+192+29
+	call print_char
+	call screen2att
+	push hl
+	call get_colour
+	pop hl
+	ld (hl),a
+	ret
+	;
+delete_mapper
+	ld de,(omx)	;xy in DE of old address
+	call cord2map	;points HL at map_book XY
+	ld a,h
+	sub 40
+	ld h,a		;map is at 32768, 40 high bytes above attrs
+	res 7,(hl)
+	ret
+draw_mapper
+	ld de,(mx)	;DE at new address
+	call cord2map
+	ld a,h
+	sub 40
+	ld h,a		;map is at 32768, 40 high bytes above attrs
+	set 7,(hl)
+	ret
+
+keys2	call any_23560
+	ld ix,mtab
+	ld b,mtabend-mtab/3
+mlp	cp (ix+0)	;is pressed key same?
+	jp z,kpr
+	inc ix 
+	inc ix
+	inc ix
+	djnz mlp
+	jr keys2
+	;
+mtab	defb	'q'
+	defw	mup
+	defb	'a'
+	defw	mdn
+	defb	'p'
+	defw	mright
+	defb	'o'
+	defw	mleft
+	defb	'x'
+	defw	clearmap
+	defb	'c'
+	defw	copymap
+	defb	'v'
+	defw	pastemap
+	defb	'r'
+	defw	fill_map_row
+	defb	'f'
+	defw	fill_map_column
+	defb	'1'
+	defw	next_mapblock_down
+	defb	'2'
+	defw	next_mapblock_up
+	defb	' '
+	defw	insert_map_block
+	defb	'e'
+	defw	exittomenu
+mtabend
+mup	ld a,(my)
+	or a
+	ret z
+	dec a
+	ld (my),a
+	ret
+	;
+mdn	ld a,(my)
+	cp 21
+	ret nc
+	inc a
+	ld (my),a
+	ret
+	;
+mright
+	ld a,(mx)
+	cp 31
+	ret nc
+	inc a
+	ld (mx),a
+	ret
+	;
+mleft	ld a,(mx)
+	or a
+	ret z
+	dec a
+	ld (mx),a
+	ret
+	;
+clearmap
+	ld ix,clearmstr
+	call print_string
+	call any_23560
+	cp 'y'
+	ret nz
+	ld hl,map_book
+	ld de,map_book+1
+	ld (hl),0
+	ld bc,(22*32)-1
+	ldir
+	ret
+clearmstr	defb	8,8,'CLEAR MAP? SURE? Y/N',255
+pastemstr	defb	8,8,'PASTE CLIPBOARD? Y/N',255
+	;
+copymap
+	ld hl,map_book
+	ld de,map_clipboard
+	ld bc,704
+	ldir
+	ret
+pastemap
+	ld ix,pastemstr
+	call print_string
+	call any_23560
+	cp 'y'
+	ret nz
+	ld hl,map_clipboard
+	ld de,map_book
+	ld bc,704
+	ldir
+	ret
+	;
+fill_map_row
+	ld a,(my)
+	ld d,a
+	ld e,0
+	call cord2map
+	ld a,(udgno)
+	ld b,32
+fmlp	ld (hl),a
+	inc l
+	djnz fmlp
+	ret
+	;
+fill_map_column
+	ld a,(mx)
+	ld e,a
+	ld d,0
+	call cord2map
+	ld a,(udgno)
+	ld de,32
+	ld b,22
+fmclp	ld (hl),a
+	add hl,de
+	djnz fmclp
+	ret
+	;
+next_mapblock_down
+	ld a,(udgno)
+	dec a
+	cp 255
+	ld (udgno),a
+	ret nz
+	ld a,47
+	ld (udgno),a
+	ret
+	;
+next_mapblock_up
+	ld a,(udgno)
+	inc a
+	ld (udgno),a
+	cp 47
+	ret c
+	xor a
+	ld (udgno),a
+	ret
+	;
+insert_map_block
+	ld de,(mx)
+	call cord2map
+	ld a,(udgno)
+	ld (hl),a
+	ret
+	;
+mx	defb	0
+my	defb	0
+omx	defb	0
+omy	defb	0
+	;
+font_designer
+	ld hl,dnth
+	ld (rpok5),hl
+	ld a,201
+	ld (display_spritestuff),a
+	ld (dbe),a
+	ld hl,fkeys
+	ld (fkeypok+1),hl
+	ld hl,font
+	ld (get_block+1),hl
+	ld a,127
+	ld (totaludg),a
+	call setupdesigner
+	ld ix,fontdesignerstr
+	call print_string
+	xor a
+	ld (colpok),a	;poke to avoid the colours being messed up
+	jp lmp
+	;
+sprite_designer
+	xor a
+	ld (display_spritestuff),a
+	ld a,201
+	ld (dbe),a
+	ld hl,keys
+	ld (fkeypok+1),hl
+	ld hl,collision_effect
+	ld (rpok5),hl
+	ld hl,speed_control	;routines only used by the sprites designer
+	ld (rpok1),hl
+	ld hl,control_type
+	ld (rpok2),hl
+	ld hl,dnth
+	ld (rpok3),hl
+	ld (rpok4),hl		;disable keys t and y from the udg designer
+	ld hl,spritegraphics
+	ld (get_block+1),hl
+	ld hl,sprite_colours
+	ld (colourseed+1),hl
+	ld a,15
+	ld (totaludg),a
+	call setupdesigner
+	ld ix,udgdesignerstr
+	call print_string
+	ld ix,sprstring
+	call print_string
+	xor a
+	ld (udgno),a
+	ld ix,property_tab;udgtab
+	ld a,(ix+5)	;get speed of sprite we're pointing at
+	call pspeed	;print speed without changing it (which speed control does)
+	jp lmp
+	;
+udg_designer
+	xor a
+	ld (dbe),a
+	ld a,201
+	ld (display_spritestuff),a
+	ld hl,keys
+	ld (fkeypok+1),hl
+	ld hl,dnth
+	ld (rpok5),hl
+	ld hl,select_player_block_effect_down	;routines only used by the udg designer
+	ld (rpok1),hl
+	ld hl,select_player_block_effect_up
+	ld (rpok2),hl
+	ld hl,select_baddy_block_effect_down	;routines only used by the udg designer
+	ld (rpok3),hl
+	ld hl,select_baddy_block_effect_up
+	ld (rpok4),hl
+	call set_normal_graphics		;set some seeds
+	ld a,31			;31 for blocks, 15 for sprites
+	ld (totaludg),a
+	;
+	call setupdesigner
+	ld ix,udgdesignerstr
+	call print_string
+	call display_block_effects	;not used by sprite and font designer
+	;
+	;SHARED CONTROL LOOP between udg, sprite and font designer
+	ld a,(colpok)		;dodgy this, o means fonts designer, so we miss out the next bit
+	or a
+	jr z,lmpmis
+lmp	call display_spritestuff
+	ld a,(display_spritestuff)
+	cp 201
+	call z,dbe		;display player and baddy block effect		
+lmpmis	ld a,(cx)		;put current x and y into old x and y for deletion later
+	ld (ocx),a
+	ld a,(cy)
+	ld (ocy),a
+fkeypok	call keys		;correct key read routine gets poked in here
+	call delcursor
+	call draw_udg_sample
+	ld a,(ret_flag)
+	or a
+	jp nz,ret_to_menu
+	jr lmp
+	;
+display_spritestuff	;hack, spaghetti code :-(
+	nop		;a RET is poked in here for font and udg designer
+	ld a,201
+	ld (incs),a	;means we can display playerspeed without increasing it
+	call speed_control	;normally incs and prints, now just prints
+	xor a
+	ld (incs),a	;reset to allow it to work to inc/dec speed
+	;
+	ld a,201
+	ld (incts),a
+	call control_type
+	xor a
+	ld (incts),a
+	;
+	ld a,201
+	ld (ince),a
+	call collision_effect
+	xor a
+	ld (ince),a
+	;
+	ret
+	;
+setupdesigner
+	ld a,201
+	ld (colpok),a
+	xor a
+sud2	ld (udgno),a
+	xor a
+	ld (ret_flag),a
+	call cls
+	ld a,(editor_paper)
+	call pf2
+	call setudgplot	;black 8x8 square at top right
+	call drawcursor
+	ret
+	;
+ret_to_menu
+	ld ix,surestring
+	call print_string
+	call zzapp
+	ld a,(editor_border)
+	out (254),a
+	call any_23560
+	cp 'y'
+	ret z
+	xor a			;not returning, so delete message, usnet flag
+	ld (ret_flag),a
+	ld ix,delmess		;delete surestring and continue
+	call print_string
+	jp lmp
+	;
+ret_to_menu3			;from map designer
+	ld ix,surestring
+	call print_string
+	call zzapp
+	ld a,(editor_border)
+	out (254),a
+	call any_23560
+	cp 'y'
+	ret z
+	xor a			;not returning, so delete message, usnet flag
+	ld (ret_flag),a
+	ld ix,delmess		;delete surestring and continue
+	call print_string
+	jp maplp
+	;
+ret_to_menu2
+	ld ix,surestring
+	call print_string
+	call zzapp
+	ld a,(editor_border)
+	out (254),a
+	call any_23560
+	cp 'y'
+	ret z
+	xor a			;not returning, so delete message, usnet flag
+	ld (ret_flag),a
+	ld ix,delmess		;delete surestring and continue
+	call print_string
+	jp emlp
+	;
+draw_udg_sample
+	ld a,(udgno)
+	call get_block
+dus	ld de,16384+96+12
+	call print_char
+	call screen2att
+	push hl
+	call get_colour
+	pop hl
+	ld de,65503
+	add hl,de
+	ld de,29
+	ld c,3
+dulp2	ld b,3
+dulp	ld (hl),a
+	inc l
+	djnz dulp
+	add hl,de
+	dec c
+	jr nz,dulp2
+	ret
+	;
+keys	call any_23560
+	ld ix,ktab
+	ld b,endktab-ktab/3
+klp	cp (ix+0)	;is pressed key same?
+	jr z,kpr
+	inc ix 
+	inc ix
+	inc ix
+	djnz klp
+	jr keys
+	;
+kpr	inc ix		;key pressed and corresponding routine found
+	ld l,(ix+0)
+	ld h,(ix+1)
+	jp (hl)
+	;
+ktab	defb	'p'
+	defw	cursorright
+	defb	'o'
+	defw	cursorleft
+	defb	'q'
+	defw	cursorup
+	defb	'a'
+	defw	cursordown
+	defb	' '
+	defw	dobits
+	defb	'0'
+	defw	scroll_ink
+	defb	'9'
+	defw	scroll_paper
+	defb	'8'
+	defw	togglebright
+	defb	'7'
+	defw	toggleflash
+	defb	'x'
+	defw	clearplot
+	defb	'f'
+	defw	fillplot
+	defb	'g'
+	defw	generate_imp
+	defb	'h'
+	defw	hashblock
+	defb	'm'
+	defw	mirror_block
+	defb	'k'
+	defw	flip_vertical
+	defb	'4'
+rpok5	defw	collision_effect
+	defb	'5'
+rpok1	defw	select_player_block_effect_down
+	defb	'6'
+rpok2	defw	select_player_block_effect_up;select_baddy_block_effect
+	defb	't'
+rpok3	defw	select_baddy_block_effect_down
+	defb	'y'
+rpok4	defw	select_baddy_block_effect_up;select_baddy_block_effect
+	defb	'2'
+	defw	nextudgup
+	defb	'1'
+	defw	nextudgdown
+	defb	'c'
+	defw	copy_to_clipboard
+	defb	'v'
+	defw	paste_from_clipboard
+	defb	'e'
+	defw	exittomenu
+	defb	'r'
+	defw	rotate_udg
+endktab
+	;
+fkeys	call any_23560
+	ld ix,fktab
+	ld b,endfktab-fktab/3
+fklp	cp (ix+0)	;is pressed key same?
+	jr z,fkpr
+	inc ix 
+	inc ix
+	inc ix
+	djnz fklp
+	jr fkeys
+	;
+fkpr	inc ix		;key pressed and corresponding routine found
+	ld l,(ix+0)
+	ld h,(ix+1)
+	jp (hl)
+	;
+fktab	defb	'p'
+	defw	cursorright
+	defb	'o'
+	defw	cursorleft
+	defb	'q'
+	defw	cursorup
+	defb	'a'
+	defw	cursordown
+	defb	' '
+	defw	dobits
+	defb	'x'
+	defw	clearplot
+	defb	'f'
+	defw	fillplot
+	defb	'h'
+	defw	hashblock
+	defb	'b'
+	defw	bold_font
+	defb	'i'
+	defw	italic_font
+	defb	'r'
+	defw	restore_rom_font
+	defb	'm'
+	defw	mirror_block
+	defb	'k'
+	defw	flip_vertical
+	defb	'2'
+	defw	nextudgup
+	defb	'1'
+	defw	nextudgdown
+	defb	'c'
+	defw	copy_to_clipboard
+	defb	'v'
+	defw	paste_from_clipboard
+	defb	'e'
+	defw	exittomenu
+	defb	'r'
+	defw	rotate_udg
+endfktab
+	;
+cursorright
+	ld a,(cx)
+	cp 7
+	ret nc
+	inc a
+	ld (cx),a
+	ret
+cursorleft
+	ld a,(cx)
+	or a
+	ret z
+	dec a
+	ld (cx),a
+	ret
+cursorup
+	ld a,(cy)
+	or a
+	ret z
+	dec a
+	ld (cy),a
+	ret
+cursordown
+	ld a,(cy)
+	cp 7
+	ret nc
+	inc a
+	ld (cy),a
+	ret
+	;
+dobits		;space key pressed, set or unset bit
+	ld a,(cy)
+	call gety	;point hl at correct square on screen
+	ld a,(cx)
+	add a,l
+	ld l,a
+	ld b,8
+dblp	ld a,(hl)
+	xor 255		;place or remove block
+	ld (hl),a
+	inc h
+	djnz dblp	;8 times
+	call scr2bit	;put new data from screen into udg data
+	ret
+	;
+scroll_ink
+	ld a,(colpok)
+	cp 201			;this routine is turned off when doing fonts
+	ret nz
+	call get_colour	;point HL at correct colour byte
+	ld b,a
+	and 248
+	ld c,a	;c hold paper,bright,flash
+	ld a,b
+	inc a
+	and 7
+	or c
+	ld (hl),a
+	jp colplot	;colour with new colours
+	;
+scroll_paper
+	ld a,(colpok)			;this routine is turned off when doing fonts
+	cp 201
+	ret nz
+	call get_colour
+	ld b,a
+	and 199
+	ld c,a		;c hold flash,bright,ink
+	ld a,b
+	and 56		;paper only
+	add a,8
+	and 56
+	or c
+	ld (hl),a
+	jp colplot
+	;
+toggleflash
+	call get_colour
+	xor 128
+	ld (hl),a
+	jp colplot
+	;
+togglebright
+	call get_colour
+	xor 64
+	ld (hl),a
+	jp colplot
+	;
+clearplot
+	ld a,(udgno)
+	call get_block
+	xor a
+fc_c	ld b,8		;entry point if filling block
+cplp	ld (hl),a
+	inc hl
+	djnz cplp
+	call drawcursor	;xor off cursor
+	call bit2scr
+	jp drawcursor
+	;
+fillplot
+	ld a,(udgno)
+	call get_block
+	ld a,255
+	jr fc_c		;common part of routine with clear plot
+	;
+generate_imp		;random imp
+	ld a,(udgno)
+	call get_block
+	push hl
+	pop ix
+	;
+	ld a,(gimpok)
+	xor 23		;toggle rla and nop for different imp size
+	ld (gimpok),a
+	;
+	ld b,8
+grp	call rnd
+	and 15
+	jr z,grp
+	push af
+	call mirrorbyte	;mirrors A into C
+	pop af
+gimpok	rla		;23 is xor'd on and off here, giving rla one time, nop the next
+	or c
+	ld (ix+0),a
+	inc ix
+	djnz grp
+scrs	call drawcursor
+	call bit2scr
+	jp drawcursor
+	;
+mirrorbyte
+	ld c,1
+milp	rra
+	rl c
+	jr nc,milp
+	ret
+	;
+rotate_udg
+	ld hl,scratchpad
+	ld b,7
+rulp	ld (hl),0	;empty scratchpad
+	inc hl
+	djnz rulp
+	ld a,(udgno)
+	call get_block	;point hl at current udg
+	push hl
+	ld c,8
+rulp3	ld ix,scratchpad
+	ld b,8
+rulp2	rr (hl)		;rotate bit or not into carry
+	rl (ix+0)	;rotate bit or not into scratchpad
+	inc ix
+	djnz rulp2
+	;
+	inc hl		;one byte of udg done, now next
+	dec c
+	jr nz,rulp3
+	;
+	pop de
+	ld hl,scratchpad
+	ld bc,8
+	ldir
+	call drawcursor
+	call setudgplot
+	jp drawcursor
+	;
+bold_font
+	ld hl,font
+	ld c,96		;96 chars to bolded
+bflp2	ld b,8
+bflp	ld a,(hl)
+	sra a
+	or (hl)
+	ld (hl),a
+	inc hl
+	djnz bflp
+	dec c
+	jr nz,bflp2
+	call drawcursor
+	call setudgplot
+	jp drawcursor
+	;
+italic_font
+	ld hl,font
+	ld b,96
+iflp	sra (hl)
+	inc hl
+	sra (hl)
+	inc hl
+	sra (hl)	;3
+	inc hl		
+	inc hl
+	inc hl
+	sla (hl)
+	inc hl
+	sla (hl)
+	inc hl
+	sla (hl)
+	inc hl
+	djnz iflp
+	call drawcursor
+	call setudgplot
+	jp drawcursor
+	;
+restore_rom_font
+	ld hl,15616
+	ld de,font
+	ld bc,768
+	ldir
+	call drawcursor
+	call setudgplot
+	jp drawcursor
+	;
+mirror_block
+	ld a,(udgno)
+	call get_block	;point hl at current udg
+	ld b,8
+mblp	ld a,(hl)
+	call mirrorbyte
+	ld (hl),c
+	inc hl
+	djnz mblp
+muup	call drawcursor
+	call setudgplot
+	jp drawcursor
+	;
+hashblock
+	ld a,(udgno)
+	call get_block
+	ld b,4
+hblp	ld a,(hl)
+	or 170
+	ld (hl),a
+	inc hl
+	ld a,(hl)
+	or 85
+	ld (hl),a
+	inc hl
+	djnz hblp
+	jr muup	
+	;
+flip_vertical
+	ld a,(udgno)
+	call get_block
+	push hl
+	ld de,scratchpad
+	ld bc,8
+	ldir
+	pop de			;de at current block
+	ld hl,scratchpad+7
+	ld b,8
+fvlp	ld a,(hl)
+	ld (de),a
+	inc de
+	dec hl
+	djnz fvlp
+	call drawcursor
+	call setudgplot
+	jp drawcursor
+	;
+nextudgup
+	ld a,(colpok)
+	cp 201
+	jr nz,nextfontup
+	ld a,(totaludg)
+	ld b,a
+	ld a,(udgno)
+	inc a
+	and b
+	ld (udgno),a
+nuu2	call drawcursor
+	call setudgplot
+	jp drawcursor
+	;
+nextfontup
+	ld a,(udgno)
+	inc a
+	ld (udgno),a
+	cp 96
+	jr c,nuu2
+	xor a		;we've gone beyond font end
+	ld (udgno),a	;so reset to start
+	jr nuu2
+	;
+nextudgdown
+	ld a,(colpok)
+	cp 201
+	jr nz,nextfontdown
+	ld a,(totaludg)
+	ld b,a
+	ld a,(udgno)
+	dec a
+	and b
+	ld (udgno),a
+	jr nuu2
+	;
+nextfontdown
+	ld a,(udgno)
+	dec a
+	ld (udgno),a
+	cp 255
+	jr nz,nuu2
+	ld a,95
+	ld (udgno),a
+	jr nuu2
+	;
+select_player_block_effect_up
+	ld a,(udgno)
+	ld de,playerblocks
+	call get_block_effect	;points hl at byte for that block, and its property in A
+	inc a
+	cp number_of_block_effects		;EDIT CHANGE LATERnumber_of_block_effects
+	call nc,reset_byte
+	ld (hl),a
+	jp display_block_effects
+	;
+select_player_block_effect_down
+	ld a,(udgno)
+	ld de,playerblocks
+	call get_block_effect	;points hl at byte for that block, and its property in A
+	dec a
+	cp 255;number_of_block_effects		;EDIT CHANGE LATERnumber_of_block_effects
+	call z,topblock
+	ld (hl),a
+	jp display_block_effects
+	;
+topblock
+	ld a,number_of_block_effects-1
+	ret
+	;
+select_baddy_block_effect_up
+	ld a,(udgno)
+	ld de,baddyblocks
+	call get_block_effect	;points hl at byte for that block, and its property in A
+	inc a
+	cp number_of_block_effects			;EDIT CHANGE LATER
+	call nc,reset_byte
+	ld (hl),a
+	jp display_block_effects
+	;
+select_baddy_block_effect_down
+	ld a,(udgno)
+	ld de,baddyblocks
+	call get_block_effect	;points hl at byte for that block, and its property in A
+	dec a
+	cp 255;number_of_block_effects		;EDIT CHANGE LATERnumber_of_block_effects
+	call z,topblock
+	ld (hl),a
+	jp display_block_effects
+	;
+speed_control		;scroll incs speed byte of current udg, displays as value 0-9
+	ld ix,speedstr
+	call print_string
+	ld a,2
+	call 5633
+	ld a,22
+	rst 16
+	ld a,8
+	rst 16
+	ld a,27
+	rst 16				;for the 6683 ROM call later
+	ld a,(udgno)
+	cp 4
+	push af
+	call c,playerspeed		;0,1,2,3, are all for the player, so we only want to change on byte in the table, set a to 0
+	pop af
+	call nc,guardianspeed
+	and 15				;udgno will be 0-11
+	cp 12
+	ret nc				;just make sure
+	ld ix,property_tab-length_of_udg_tab	;the player speed byte = ix+5 when pointing at the top of the table entry
+	ld de,length_of_udg_tab
+	inc a				;can only be 1-12
+	ld b,a
+splp	add ix,de
+	djnz splp
+	ld a,(ix+5)				;ix is now pointing at the correct entry, get speed byte
+	call incs
+pspeed	cpl					;the way i use the number is the other way round, ie 0 is fast 255 is slow, but vice versa looks more correct
+	ld c,0
+spr	inc c
+	sla a
+	jr c,spr
+	ld b,0				;entry point if you just want to display and not adjust
+	push bc
+	ld ix,speedstr
+	call print_string
+	ld a,2
+	call 5633
+	ld a,22
+	rst 16
+	ld a,8
+	rst 16
+	ld a,27
+	rst 16				;for the 6683 ROM call later
+	pop bc
+	call 6683
+	ret
+	;
+incs	nop				;a 0 or return is poked in here	
+	cp 255				;increase speed
+	jr nz,spm
+	xor a
+	jr spm2
+spm	scf					;the speed byte must be 0,1,3,7,15,31,63,255
+	rla					;rotate the carry in
+spm2	ld (ix+5),a
+	ret
+	;
+playerspeed
+	xor a
+	ret
+guardianspeed
+	sub 3
+	ret
+	;
+control_type			;scroll through types of AI
+	ld a,(udgno)
+	cp 4
+	jp c,playercontrol	;udgs 0,1,2,3 are player
+gccont	sub 3			;a holds 4 upwards, convert to baddy number starting at 1
+	ld b,a
+	ld ix,property_tab;udgtab		;same as badtab - 1
+	ld de,length_of_udg_tab
+gcclp	add ix,de
+	djnz gcclp
+	ld a,(ix+6)		;ix now pointing at correct table entry, get control byte
+	call incts
+	;
+	inc a			;convert to number 1-8
+	ld b,a
+	ld ix,gcontstrings
+	call findstring
+	ld de,18432+10+32
+	call print_string
+	ret
+incts	nop	
+	inc a
+	and 15			;16 possible routines
+	ld (ix+6),a
+	ret
+	;
+inpc	nop	
+	inc a
+	and 3
+	ld (pkeybyte),a
+	ret
+	;
+playercontrol
+	ld a,(incts)
+	ld (inpc),a		;lazy spaghetti code
+	ld a,(pkeybyte)
+	call inpc
+pcp	add a,a			;convert byte to word
+	ld h,0
+	ld l,a
+	ld de,pkeytab
+	add hl,de		;hl now pointing at correct part of the key tab
+	ld e,(hl)
+	inc hl
+	ld d,(hl)		;now de contains this routine
+	ld (keypok+1),de	;poke this into the main game loop, keypok is CALL, followed by the routine
+	;
+	ld a,(pkeybyte)		;now indicate in the editor which one we have selected
+	inc a
+	ld b,a			;b holds 1,2,3,or 4
+	ld ix,keystrings
+	call findstring		;point ix at the appropriate string
+	ld de,18432+10+32
+	call print_string
+	ret
+	;
+collision_effect		;what happens when the player collides with the currently selected guardian
+	ld a,(udgno)
+	cp 4
+	ret c			;this doesn't apply to when looking at the player (udgs 0-3)
+gccolle	sub 3			;a holds 4 upwards, convert to baddy number starting at 1
+	ld b,a
+	ld ix,property_tab;udgtab		;same as badtab - 1
+	ld de,length_of_udg_tab
+gcolp	add ix,de
+	djnz gcolp
+	ld a,(ix+11)		;ix now pointing at correct table entry, get control byte
+	call ince
+	;
+	inc a			;convert to number 1-8
+	ld b,a
+	ld ix,guardian_coll_strings
+	call findstring
+	ld de,18432+10+64
+	call print_string
+	ret
+ince	nop	
+	inc a
+	and 3			;4 possible routines
+	ld (ix+11),a
+	ret
+	;
+	
+
+pkeytab
+	defw	check_keys1	;responsive, multiple keypresses
+	defw	check_keys2	;pacman style
+	defw	check_keys3	;responsive, one key at a time
+	defw	turn_based_keys	;as the name suggests, a non arcade style of game
+	;
+pkeybyte	defb	0
+	;
+copy_to_clipboard
+	ld a,(udgno)
+	call get_block
+	ld de,clipboard
+	ld bc,8
+	ldir
+	call get_colour
+	ld (clipboard_colour),a
+	;
+showclipboard
+	ld hl,clipboard		;now show what's on the clipboard now
+	ld de,20480+(32*6)+28
+	call print_char
+	call screen2att
+	ld a,(clipboard_colour)
+	ld (hl),a
+	ret
+	;
+paste_from_clipboard
+	ld a,(udgno)
+	call get_block		;point hl at current udg
+	ld de,clipboard		;de at source
+	ex de,hl		;vice versa for ldir
+	ld bc,8
+	ldir
+	call get_colour		;point hl at corresponding colour
+	ld a,(clipboard_colour)
+	ld (hl),a
+	call setudgplot		;display all new data
+	call drawcursor
+	ret
+	;
+exittomenu
+	ld a,255
+	ld (ret_flag),a
+	ret
+	;
+delcursor
+	ld a,(ocy)
+	call gety
+	ld a,(ocx)
+	call dox
+	;
+drawcursor
+	ld a,(cy)
+	call gety
+	ld a,(cx)
+dox	add a,l
+	ld l,a
+	inc h
+	inc h
+	inc h
+	ld a,(hl)
+	xor 48
+	ld (hl),a
+	inc h
+	ld a,(hl)
+	xor 48
+	ld (hl),a
+	ret
+gety	add a,a	;x2
+	add a,a	;x4
+	add a,a	;x8
+	add a,a	;x16
+	add a,a	;x32
+	ld h,64
+	ld l,a	;hl now at correct row of screen
+	ret
+	;
+setudgplot
+	call colplot	;colour 8x8 design area
+	call bit2scr	;draw currently selected udg big on scr
+	call draw_udg_sample
+	call print_udgno
+	call showclipboard
+	ret
+	;
+display_block_effects	;print the current block effect for player and baddy
+	call insert_player_effects	;poke the values into the jump tables for the game
+dbe	nop	
+	ld a,(udgno)
+	ld de,playerblocks
+	call db1		;finds property and points ix at the correct string for it
+	ld de,18432+11
+	call print_string
+	ld a,(udgno)
+	ld de,baddyblocks
+	call db1
+	ld de,18432+32+11
+	call print_string
+	ret
+	;
+db1	call get_block_effect
+	cp number_of_block_effects+1
+	call nc,reset_byte
+	inc a
+	ld b,a		;b holds 1 to 8
+	ld ix,effectstrings
+	call findstring	;point ix at the correct string
+	ret
+	;
+insert_player_effects
+	ld ix,playerblocks
+	ld de,player_jump_table
+	call iplp
+	ld ix,baddyblocks
+	ld de,baddy_jump_table
+	call iplp
+	ret
+iplp	ld a,(ix+0)	;get routine type
+	cp 255
+	ret z
+	add a,a		;change byte to word
+	ld h,0
+	ld l,a
+	ld bc,effecttab
+	add hl,bc	;hl pointing at effect for this byte, de at the jump table
+	ldi
+	ldi		;leaves de pointing at the next address in jump table
+	inc ix
+	jr iplp
+	;
+get_block_effect	;arrive with de at the block list (player or baddy) and a holding current udg no
+	ld h,0
+	ld l,a		;a is 0 to 32
+	add hl,de	;point hl at the correct block
+	ld a,(hl)
+	ret
+	;
+print_udgno
+	ld a,1
+	call 5633
+	ld a,22
+	rst 16
+	xor a
+	rst 16
+	xor a
+	rst 16
+	;
+	ld b,16		;delete old text first
+pulp	ld a,32
+	rst 16
+	djnz pulp
+	;
+	ld de,numstr
+	ld bc,numstrend-numstr
+	call 8252
+	ld b,0
+	ld a,(udgno)
+	ld c,a
+	jp 6683		;ROM routine to print no
+	;
+colplot
+	call get_colour	;get colour of current udg
+	ld hl,22528
+	ld de,24
+	ld c,8
+sulp2	ld b,8
+sulp	ld (hl),a
+	inc l
+	djnz sulp
+	add hl,de
+	dec c
+	jr nz,sulp2
+	ret
+	;
+bit2scr
+	ld a,(udgno)	;now draw the bits
+	call get_block	;point hl at correct graphic
+	push hl
+	pop ix
+	ld de,24
+	ld hl,16384
+	ld c,8
+blp2	ld a,(ix+0)	;draw block or clear according to udg ix is pointing at
+	ld b,8
+blp	rla
+	push hl
+	push bc
+	call bits
+	pop bc
+	pop hl
+	inc l
+	djnz blp
+	add hl,de
+	inc ix
+	dec c
+	jr nz,blp2
+	ret
+bits	jr nc,nobit
+	ld b,8
+bslp	ld (hl),255
+	inc h
+	djnz bslp
+	ret
+nobit	ld b,8
+nbslp	ld (hl),0
+	inc h
+	djnz nbslp
+	ret
+	;
+scr2bit			;converts what's on screen to udg data 
+	ld a,(udgno)
+	call get_block
+	push hl
+	pop ix
+	ld hl,16384
+	ld de,24
+	ld b,8
+sblp2	ld c,1
+sblp	ld a,(hl)
+	inc l
+	rra		;(hl) is either 0 or 255, so carry will be set if bit there, or not if..not
+	rl c		;rotate the bit/notbit out of a and into c
+	jr nc,sblp
+	ld (ix+0),c
+	inc ix
+	add hl,de
+	djnz sblp2
+	ret
+	;
+playerblocks	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,255	;each byte represents the effect of that block number
+baddyblocks	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,255	;each byte represents the effect of that block number	
+	;
+editor_border	defb	4
+editor_paper	defb	32
+cx		defb	3	;cords 0-7 for drawing cursor
+ocx		defb	3	;old cx, for deletion
+cy		defb	3
+ocy		defb	3	;old cy, for deletion
+udgno		defb	0	;current udg being looked at	
+totaludg	defb	0
+ret_flag	defb	0
+	;
+clipboard		defb	0,0,0,0,0,0,0,0	;8 bytes for storage
+clipboard_colour	defb	0
+scratchpad		defb	0,0,0,0,0,0,0,0
+	;
+org 32512	;on a word boundary, introscreen text goes here, 256 bytes worth
+introscreen_text
+	defb	'Intro text here.                '
+	defb	'EG - Game info.                 '
+	defb	'At game start pressing R refines'
+	defb	'the keys, any other key starts  '
+	defb	'the game.                       '
+	defb	'                                '
+	defb	'                                '
+	defb	'                                '
+org 32768
+	;
+map_book	;map template gets ldird into place here depending on level on WORD BOUNDARY 32768
+	defb	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+mtrow	defb	1,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,1
+	defb	1,6,1,1,1,1,1,1,1,1,1,6,1,1,1,1,1,6,1,1,1,1,1,6,1,1,1,1,1,1,6,1
+	defb	1,6,1,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,1,6,1
+	defb	1,6,1,6,1,1,1,1,1,1,1,6,1,1,1,1,1,6,1,1,1,1,1,1,1,1,1,1,6,1,6,1
+	defb	1,6,1,6,1,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,1,6,1,6,1
+	defb	1,6,1,6,1,6,1,1,1,1,1,1,1,1,6,1,1,1,1,1,1,1,6,1,6,1,6,1,6,1,6,1
+	defb	1,6,1,6,1,6,1,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,1,6,1,6,1,6,1
+	defb	1,6,6,6,6,6,1,6,1,1,1,6,1,1,1,1,6,6,6,1,6,1,6,1,6,1,6,1,6,6,6,1
+	defb	1,6,1,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,1,6,1,6,1,6,1,6,1,6,6,6,1
+	defb	1,6,6,6,6,6,6,6,1,1,1,1,1,1,1,1,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,1
+	defb	1,6,1,6,6,6,6,6,1,6,6,6,6,6,6,6,6,1,1,1,6,1,6,1,6,1,6,1,6,1,6,1
+	defb	1,6,1,6,6,6,1,6,1,6,1,6,6,1,6,6,6,6,6,6,6,1,6,1,6,1,6,1,6,6,6,1
+	defb	1,6,1,6,6,6,1,6,1,1,1,6,1,1,1,1,6,1,1,1,1,1,6,1,6,1,6,1,6,1,6,1
+	defb	1,6,1,6,6,6,1,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,1,6,1,6,6,6,1,6,1
+	defb	1,6,1,6,6,6,1,1,1,1,1,6,1,1,1,1,6,1,1,1,1,1,6,1,6,1,6,1,6,1,6,1
+	defb	1,6,1,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,1,6,1,6,1
+	defb	1,6,1,6,1,1,1,1,1,1,1,1,1,6,1,1,1,1,6,1,1,1,1,1,1,6,6,1,6,1,6,1
+	defb	1,6,1,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,1,6,1
+	defb	1,6,1,1,1,1,1,1,1,6,1,1,1,1,1,1,6,1,1,1,1,1,1,6,1,1,1,1,1,1,6,1
+mbrow	defb	1,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,1
+	defb	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+	defb	255	;end of map marker
+	;
+colours
+rept	32
+	defb	32
+endrep
+sprite_colours
+rept	16
+	defb	71
+endrep
+	;
+level_names
+	defb	255
+lns	defb	'Level 0 (game title)            ',255	;game title
+	defb	'Level 1 name here               ',255	;levels 1 to 9
+	defb	'Level 2 name here               ',255
+	defb	'Level 3 name here               ',255
+	defb	'Level 4 name here               ',255
+	defb	'Level 5 name here               ',255
+	defb	'Level 6 name here               ',255
+	defb	'Level 7 name here               ',255
+	defb	'Level 8 name here               ',255
+	defb	'Level 9 name here               ',255
+bl	defb	'Time:       Level:     Lives:   ',255	;in game bottom line
+go	defb	'Game over message press G       ',255	;game over message
+cos	defb	'Congratulations message press C ',255	;Game complete message
+msg1	defb	'In game message 1: Press A      ',255
+msg2	defb	'In game message 2: Press S      ',255
+msg3	defb	'In game message 3: Press D      ',255
+	defb	255
+	;
+official_game_start		;this is the USR to randomize in the final non edited game.USR 33903
+red1	call dnth
+	call save_loading_screen
+	ld a,244
+	ld (23739),a		;this sys var is often poked with 111 to save loaders, this restores ROM printing
+	ld hl,main_game_loop
+	ld (ofpok+1),hl		;while using the editor, key z calls level complete, here it does nowt
+	call gamestart
+	jr official_game_start
+	;
+gamestart			;this is the gamestart when using the editor, or 
+	ld hl,mapstore
+	ld de,map1
+	ld bc,6345
+	ldir			;resets all variables, items collected etc
+	ld hl,font-256
+	ld (23606),hl		;for ROM number printing we use our custom font
+	ld (get_char+1),hl
+	ld a,(psped)
+	ld (pspd),a		;get player speed, bit of a lazy hack this
+	call set_variables
+	call timer_check	;if timer is set to zero we don't display the clock
+	call set_normal_graphics
+	call intro_screen
+	call use_loading_screen		;redundant call, might be useful as a poke
+red2	call dnth		;two redundant calls
+red3	call dnth
+	call any_23560
+	ld a,(23560)		;only necessary if we poke some music or other routine in just above
+	cp 'r'			;any other key starts game
+	call z,refine_keys
+game_soft_restart
+	;
+	ld hl,(timer_store)
+	ld (timer_counter),hl	;set timer again
+	ld a,0
+	ld (xcor),a		;can poke own numbers in here
+	ld a,0
+	ld (ycor),a
+	xor a
+	ld (23560),a
+	ld (dead_flag),a
+	ld (level_completed_flag),a
+	ld (pon),a	;not zero stops player being drawn
+	;
+	ld a,(game_border)
+	call 8859	;rom routine that does the border but also the bottom 2 rows
+	ld a,(game_border)
+	ld a,(game_colour)
+	call pf2
+	ld a,1		;any in game printing is the bottom 2 rows (only number printing using ROM)
+	call 5633
+	call draw_game_screen
+	call print_bottom_info	;bottom line and screen name
+	ld hl,(c1pok)
+	ld (counter1),hl
+	ld hl,(c2pok)
+	ld (counter2),hl
+	ld hl,(c3pok)
+	ld (counter3),hl
+	call set_counters_to_blocks
+	call main_game_loop
+	ret			;return to game designer
+	;
+print_bottom_info
+	ld ix,lns
+	ld a,(level)
+	or a
+	call z,inca
+	ld b,a
+	call findstring
+	ld de,20672
+	call print_string
+	ld ix,bl		;print game bottom line
+	ld de,20672+32
+	call print_string
+	ret
+	;
+main_game_loop
+	halt
+	;
+	call delete_udgs	;happens during border draw time so no flicker (unless flicker is turned ON)
+	call draw_udgs		;all done before the raster reaches the screen
+	ld ix,udgtab
+keypok	call check_keys2	;turn_based_keys
+	ld a,(23560)
+	ld b,a
+	ld a,(psk)
+	cp b
+	call z,pause
+	call collision_check	;needs calling twice
+	call guardian_control
+	;
+	call collision_check	;needs calling twice to account for player and baddy movements
+	call gravity
+	call scared_baddies	;only active when the scared flag is set (pacman tablet)
+	call lilbeep
+red4	call dnth
+red5	call dnth		;2 redundant calls, might be useful as a poke
+	call zap
+	call game_delay
+	call game_complete_check
+	call game_fail_check	;extra to the collision with enemies
+	call timer		;decrease timer (slightly slower than once each second with no game delay)
+	ld hl,(loop_counter)
+	inc hl
+	ld (loop_counter),hl
+	ld a,(dead_flag)
+	or a
+	jp nz,dead
+	ld a,(level_completed_flag)
+	or a
+	jp nz,level_completed
+	call print_timer
+	call print_level
+	call print_lives
+	ld a,(23560)
+	cp 'z'
+ofpok	jp z,level_completed	;official gamestart pokes JP Z,do nothing
+	jp main_game_loop
+
+dead	call delete_udgs
+	call draw_udgs		;display the correct final position		
+dpok1	call do_nothing
+dpok2	call do_nothing
+	ld a,(lives)
+	or a
+	jp z,game_over
+	dec a
+	ld (lives),a
+	jp game_soft_restart		;a soft restart that doesn't reset *all* the variables
+	call zzapp			;poke 3 nops above if you want avoid full restart on losing a life
+	call print_bottom_info
+	jp main_game_loop
+	;
+pause	call no_key
+	jp any_23560
+	;
+game_over				;all lives lost, show message and start again
+red6	call dnth
+	call cls
+	ld a,(game_over_colour)
+	push af
+
+
+	rrca
+	rrca
+	rrca
+	out (254),a		;border same as paper
+	pop af
+	call pf2
+	ld de,18432+96
+	ld ix,go
+	call print_string
+	call any_23560
+red7	call dnth
+	ret			;return to editor, or official game start loop
+	;
+level_completed			;If a multiscreen game there is only one level, so this means game completed
+red8	call dnth			;If a single screen game, we move onto the next level
+	call delete_udgs
+	call draw_udgs		;display the correct final position
+lcpok1	call do_nothing
+lcpok2	call do_nothing
+	ld a,(final_level)	;total number of levels
+	ld b,a
+	ld a,(level)	
+	cp b			;if same then game completed/REM multiscreen game (finallevel) will be 1
+	jp nc,game_completed	;was z, nc safer
+	inc a
+	ld (level),a		;next level along
+	jp game_soft_restart
+	;
+game_completed			;some kind of congratulations screen
+red9	call dnth
+	call cls
+	ld a,(game_complete_colour)
+	push af
+	rrca
+	rrca
+	rrca
+	out (254),a
+	pop af
+	call pf2
+	ld de,18432+96
+	ld ix,cos		;congrats string
+	call print_string
+	call any_23560
+red10	call dnth
+	ret
+	;
+scr_delay			;wait for border to reach near bottom of screen to avoid flicker
+	ld bc,2100
+sdlp	dec bc
+	ld a,b
+	or c
+	jr nz,sdlp
+	ret
+	;
+increase_timer
+	call lbbb
+	ld hl,(timer_counter)
+	inc hl
+	ld (timer_counter),hl
+	ret
+	;
+decrease_timer
+	call lbbb		;decrease timer block, should have a little noise
+	jr dtime
+	;
+timer				;decreasing game clock
+	ld a,(loop_counter)
+	and 63
+	cp 63			;once every 63 x 50th of second is close enough to 1 second
+	ret nz
+dtime	ld hl,(timer_counter)
+	ld a,h
+	or l
+	ret z
+	dec hl
+	ld (timer_counter),hl
+	ret
+	;
+game_delay
+	ld a,(delay)		;zero means off
+	or a
+	ret z
+	ld b,a			;otherwise this is around to 1/40th of a second per CALL
+gdlp	push bc
+	call scr_delay
+	pop bc
+	djnz gdlp
+	ret
+	;
+timer_check
+	xor a
+	ld (print_timer),a	;set print timer to ON
+	ld hl,(timer_counter)
+	ld a,h
+	or l
+	ret nz			;nz mean clock set, so return with print set to ON
+	ld a,201		;clock is zero
+	ld (print_timer),a	;so poke a RET instruction to stop printing the clock in the game
+	ret
+	;
+print_timer
+	nop		;a RET instruction can be poked in here, if the timer is set to zero at the start of the game (ie off)
+	ld a,22
+	rst 16
+	ld a,1
+	rst 16
+	ld a,8
+	rst 16
+	ld a,32
+	rst 16
+	ld a,32
+	rst 16
+	ld a,32
+	rst 16		;2 spaces to delete old
+	ld a,22
+	rst 16
+	ld a,1
+	rst 16
+	ld a,8
+	rst 16
+	ld bc,(timer_counter)
+	call 6683
+	ret
+	;
+print_level
+	nop
+	ld a,22
+	rst 16
+	ld a,1
+	rst 16
+	ld a,20
+	rst 16
+	ld a,(level)
+	add a,48
+	rst 16
+	ret
+	;
+print_lives
+	nop
+	ld a,22
+	rst 16
+	ld a,1
+	rst 16
+	ld a,29
+	rst 16
+	ld a,(lives)
+	ld b,0
+	ld c,a
+	call 6683
+	ret
+	;
+	;
+number_of_screen_edge_routines	equ	(screen_edge_tab_end-screen_edge_tab)/2
+player_screen_edge_byte		defb	0
+baddy_screen_edge_byte		defb	0
+screen_edge_tab
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+screen_edge_tab_end
+	;
+game_fail_check
+	ld hl,dead_flag		;pokethe correct flag to set into the 'set_flag' routine
+	ld (sfp+1),hl
+	ld a,(dead_effect_byte)	
+	jr gchere
+	;
+game_complete_check
+	ld hl,level_completed_flag	;pokethe correct flag to set into the 'set_flag' routine
+	ld (sfp+1),hl
+	ld a,(game_complete_effect_byte)
+gchere	ld de,game_complete_tab
+go_jptab
+	add a,a		;byte to word
+	ld h,0
+	ld l,a
+	add hl,de
+	ld e,(hl)
+	inc hl
+	ld d,(hl)
+	ex de,hl
+	jp (hl)
+	;
+number_of_game_completed_routines	equ	(game_complete_tab_end-game_complete_tab)/2
+game_complete_effect_byte	defb	0
+dead_effect_byte		defb	0
+game_complete_tab
+	defw	do_nothing
+	defw	counter1_zero		;
+	defw	counter2_zero
+	defw	counter3_zero
+	defw	timer_zero
+	defw	baddies_all_dead	;
+	defw	player_at_bottom
+	defw	player_at_top
+	defw	player_at_right
+	defw	player_at_left
+	defw	guardian_at_bottom
+	defw	guardian_at_right
+	defw	guardian_at_left
+	defw	guardian_at_top
+game_complete_tab_end
+	;
+counter1_zero
+	ld hl,(counter1)
+	ld a,h
+	or l
+	jp z,set_flag
+	ret
+	;
+counter2_zero
+	ld hl,(counter2)
+	ld a,h
+	or l
+	jp z,set_flag
+	ret
+	;
+counter3_zero
+	ld hl,(counter3)
+	ld a,h
+	or l
+	jp z,set_flag
+	ret
+	;
+timer_zero
+	ld hl,(timer_counter)
+	ld a,h
+	or l
+	jp z,set_flag
+	ret
+	;
+baddies_all_dead
+	ld a,(number_of_baddies)
+	or a
+	ret nz
+	jp set_flag
+	;
+player_at_bottom
+	ld a,(ycor)
+	cp 21
+	ret nz
+	jp set_flag
+	;
+player_at_top
+	ld a,(ycor)
+	or a
+	ret nz
+	jp set_flag
+	;
+player_at_right
+	ld a,(xcor)
+	cp 31
+	ret nz
+	jp set_flag
+	;
+player_at_left
+	ld a,(xcor)
+	or a
+	ret nz
+	jp set_flag
+	;
+guardian_at_bottom
+	ld a,(number_of_baddies)
+	or a
+	ret z
+	ld b,a
+	ld de,length_of_udg_tab
+	ld ix,badtab
+	;
+gblp	ld a,(ix+1)	;ycor
+	cp 21
+	call z,set_flag
+	;
+	add ix,de
+	djnz gblp
+	ret
+	;
+guardian_at_top
+	ld a,(number_of_baddies)
+	or a
+	ret z
+	ld b,a
+	ld de,length_of_udg_tab
+	ld ix,badtab
+	;
+gtlp	ld a,(ix+1)	;ycor
+	or a
+	call z,set_flag
+	;
+	add ix,de
+	djnz gtlp
+	ret
+	;
+guardian_at_right
+	ld a,(number_of_baddies)
+	or a
+	ret z
+	ld b,a
+	ld de,length_of_udg_tab
+	ld ix,badtab
+	;
+grlp	ld a,(ix+0)	;xcor
+	cp 31
+	call z,set_flag
+	;
+	add ix,de
+	djnz grlp
+	ret
+	;
+guardian_at_left
+	ld a,(number_of_baddies)
+	or a
+	ret z
+	ld b,a
+	ld de,length_of_udg_tab
+	ld ix,badtab
+	;
+gllp	ld a,(ix+0)	;xcor
+	or a
+	call z,set_flag
+	;
+	add ix,de
+	djnz gllp
+	ret
+	;
+set_flag
+	ld a,255
+sfp	ld (0),a	;address poked in here, could be deadflag or game completed flag
+	ret
+	;
+set_game_completed
+	ld a,255
+	ld (level_completed_flag),a
+	ret
+	;
+set_deadflag
+	ld a,255
+	ld (dead_flag),a
+	ret
+	;
+movebeep			;sets the flag to make a noise when moving
+	ld a,(movebeep_flag)
+	or a
+	ret z
+	ld a,255
+	ld (lilbeep_flag),a
+	ret
+	;
+dec_counter_zap
+	ld a,(counterzap_flag)
+	or a
+	ret z
+	ld a,255
+	ld (zap_flag),a
+	ret
+	;
+lilbeep
+	ld a,(lilbeep_flag)
+	or a
+	ret z
+lbbb	ld hl,game_border
+	ld b,0
+lblp	ld a,r
+	and 248
+	or (hl)
+	out (254),a
+	djnz lblp
+	xor a
+	ld (lilbeep_flag),a
+	ret
+	;
+bordercrash		;crappy little border flash when player dies
+	ld bc,500
+hlp2	push bc
+	ld b,0
+hlp	ld a,c
+	out (254),a
+	djnz hlp
+	pop bc
+	dec bc
+	ld a,b
+	or c
+	jr nz,hlp2
+	ld a,(game_border)
+	out (254),a
+	ret
+	;
+rom_crash		;protracted crash noise
+	ld b,0
+	ld hl,game_border
+	ld de,0
+rclp	ld a,(de)
+	and 248
+	or (hl)
+	out (254),a
+	ld a,b
+	cpl
+	and 63
+rclp2	dec a
+	jr nz,rclp2
+	inc de
+	ld a,d
+	cp 32
+	jr c,rclp
+	ret
+	;
+dwindle_cls
+	ld a,(game_border)
+	ld c,a
+	ld b,15
+	ld hl,0
+dclp2	ld de,16384
+dclp	ld a,(de)
+	and (hl)
+	ld (de),a
+	and 248
+	or c
+	out (254),a
+	inc hl
+	inc de
+	ld a,h
+	and 63
+	ld h,a
+	ld a,d
+	cp 91
+	jr c,dclp
+	djnz dclp2
+	jp cls
+	;
+shift_cls
+	call paperfill
+	ld b,8
+shloop	ld hl,16384
+slp	sla (hl)
+	inc hl
+	ld a,h
+	cp 88
+	jr c,slp
+	djnz shloop
+	ret
+	;
+tv_noise		;scrambled effect like an out of tune telly
+	ld a,56
+	call pf2
+	ld b,20
+tvlp	push bc	
+tvp	ld hl,0
+	ld de,16384
+	ld bc,6144
+	ldir
+	ld a,h
+	and 31
+	ld (tvp+2),a
+	pop bc
+	djnz tvlp
+	ret 
+	;
+gpause	ld b,50
+plp	halt
+	djnz plp
+	ret
+	;
+rotate_player		;that dead effect where the player cycles it's animation and makes a noise
+	ld b,30
+rplp	push bc	
+	ld b,5
+rlpp	halt
+	djnz rlpp
+	ld b,32
+rpu	ld a,0
+	add a,b
+	ld (pudg),a	;cycle animation
+	ld a,(rpu+1)
+	inc a
+	and 3
+	ld (rpu+1),a
+	ld ix,udgtab
+	call dddd	;draw only player
+	call lbbb
+	pop bc
+	djnz rplp
+	ret
+	
+	;
+cls	ld hl,16384
+	ld d,h
+	ld e,1
+	ld (hl),l
+	ld bc,6911
+	ldir
+	ret
+	;
+clear2seg		;clear the bottom 2 segment
+	ld hl,18432
+	ld d,h
+	ld e,1
+	ld (hl),l
+	ld bc,4095
+	ldir
+	ret
+	;
+paperfill
+	ld a,(paper)
+pf2
+	ld hl,22528
+	ld d,h
+	ld e,1
+	ld (hl),a
+	ld bc,767
+	ldir
+	ret
+	;
+red_screen
+	ld a,16		;fill screen with red paper black ink
+	call pf2
+	ld b,10
+rslp	halt
+	djnz rslp
+	ret
+	;
+screen_flash
+	ld a,(game_border)
+	ld c,a
+	ld b,50
+sflp2	call sf1
+	djnz sflp2
+	ld a,(game_border)
+	out (254),a
+	ret
+	;
+sf1	ld hl,22528
+sf2	inc (hl)
+	res 7,(hl)
+	ld a,(hl)
+	and 248
+	or c
+	out (254),a
+	inc hl
+	ld a,h
+	cp 91
+	ret nc
+	jr sf2
+	;
+zap	ld a,(zap_flag)
+	or a
+	ret z 
+zzapp	ld d,158		;FROM THE DKTronics Sound FX generator
+        ld e,92
+	ld b,52 
+	ld hl,game_border
+zap1	push bc
+	xor a
+	srl a
+	srl a
+	srl a
+        set 4,a
+	or (hl)
+	out (254),a
+	ld b,d
+zap2	defb	0,0,0
+	djnz zap2  
+	res 4,a
+	or (hl)
+	out (254),a
+	ld b,e
+zap3	defb	0,0,0  
+	djnz zap3
+	dec d
+	dec d
+	dec e
+	nop
+	pop bc
+	djnz zap1
+	xor a
+	ld (zap_flag),a
+	ret
+	;
+save_loading_screen
+	ret
+	ld hl,16384
+	ld de,introstring
+	ld bc,6912
+	ldir
+	ld a,201			;we only use this routine once at the very start
+	ld (save_loading_screen),a
+	xor a				;then we activate the use loading screen
+	ld (use_loading_screen),a
+	ret
+	;
+use_loading_screen
+	ret
+	ld hl,introstring
+	ld de,16384
+	ld bc,6912
+	ldir
+	ret
+	;
+intro_screen
+	nop
+	call cls
+	ld a,(intro_screen_colour)
+	push af
+	call pf2
+	pop af
+	rrca
+	rrca
+	rrca
+	out (254),a
+	ld de,16384+32
+	ld ix,lns
+	ld hl,print_double_height
+	ld (pspok+1),hl
+	call print_string		;only used once, tell printstring to print double height
+	ld hl,print_char
+	ld (pspok+1),hl
+	;
+	ld de,20480			;bottom segment
+	ld ix,introscreen_text		;the text that fills the bottom segment
+	call print_seg			;print 256 characters
+	;
+	ld a,31
+	call get_block_colour
+	ld (pink+1),a
+	push af				;we need to swap ink and paper around for the other byte
+	and 7
+	rlca
+	rlca
+	rlca
+	ld b,a				;b holds new paper
+	pop af
+	and 56
+	rrca
+	rrca
+	rrca
+	or b				;ink and paper now swapped around
+	ld b,a
+	ld a,(pink+1)
+	and 192
+	or b
+	ld (bink+1),a			;Phew!  horrendous coding
+	ld a,31				;use block 31 for the big intro screen graphic
+	call get_block
+	call bit2att	
+	ret
+	;
+bit2att			;HL pointing at udg
+	push hl
+	pop ix		;point ix at graphic
+	ld hl,22528+128+12+32
+	ld c,8
+b23lp	ld a,(ix+0)
+	call b22lp	;convert one byte into one line	
+	ld de,24
+	add hl,de
+	inc ix		;next byte of udg
+	dec c
+	jr nz,b23lp
+	ret
+	;
+b22lp	ld b,8
+b2alp	rla
+	jr c,bink
+pink	ld (hl),0	;no bit so no ink
+	inc l	
+	djnz b2alp
+	ret
+bink	ld (hl),56	;bit set, so ink
+	inc l
+	djnz b2alp
+	ret
+	
+	
+	;
+draw_game_screen
+	xor a
+	ld (number_of_baddies),a	;move to game soft restet?
+	;
+	ld hl,badtab
+	ld (badtabseed),hl	;reset variable
+	;
+	call get_level_screen	;depending on game type, if multiscreen or single screen we CALL a different routine here
+	ld ix,map_book
+dgs2	ld de,16384
+	;
+dgslp	ld a,(ix+0)
+	cp 255
+	ret z
+	;
+	cp 32
+	call nc,insert_sprite	;blocks 32-47 need a table entry for a player/baddy
+	;
+dgb	ld h,0			;draw game block
+	ld l,(ix+0)
+	add hl,hl
+	add hl,hl
+	add hl,hl
+	ld bc,graphics
+	add hl,bc
+	push de
+	push de
+	call print_char
+	pop hl
+	call screen2att
+	ld de,colours
+	ld a,(ix+0)
+	add a,e
+	ld e,a
+	ld a,(de)
+	ld (hl),a
+	pop de
+	inc ix
+	inc e
+	call z,newseg
+	jr dgslp
+	;
+insert_sprite
+	cp 36
+	jp c,insert_player	;32,33,34,35 are the player
+	;
+insert_baddy			;so block is either 36,37,38,39,40,41,42,43,44,45,46,47
+	ld a,(number_of_baddies)
+	cp 12			;1 player + 11 baddies is the max
+	jp nc, badout	
+	inc a			;ok one more allowed
+	ld (number_of_baddies),a
+	push ix			;save map position
+	push de			;save screen address
+	ld a,(ix+0)
+	sub 35			;converts block number into baddy type number 1-16
+	ld ix,property_tab	;the first entry is player, but as b is >1 we always skip over it
+	ld b,a
+	ld de,length_of_udg_tab
+iblp	add ix,de
+	djnz iblp		;point ix at the correct baddy type
+	push ix
+	pop hl			;hl is pointing at this now ready for ldir
+	ld de,(badtabseed)	;point DE at the currently available baddy position
+	ld bc,length_of_udg_tab
+	ldir			;ldir the correct data from property tab to udgtab
+	ld ix,(badtabseed)	;ix at the start of the current table entry
+	ld (badtabseed),de	;next place for the next time around
+	pop de			;get screen address back
+	push de			;but we still need it so store again
+	call scr2cord
+	ld (ix+0),c
+	ld (ix+1),b
+	pop de
+	pop ix			;get map position back
+	jp badout
+insert_player
+	ld (pudg),a		;this is the starting char the sprite has in the udgtab
+	push ix
+	push de
+	call scr2cord		;convert DE into yx in BC
+	ld ix,udgtab
+	ld (ix+0),c
+	ld (ix+1),b
+	pop de
+	pop ix
+badout	ld (ix+0),0	;we need a block to put in the map though, instead of the player
+	ret
+	;
+draw_designer_screen
+	ld ix,map_book
+ds2	ld de,16384
+	;
+dslp	ld a,(ix+0)
+	cp 255
+	ret z
+	ld h,0
+	ld l,(ix+0)
+	add hl,hl
+	add hl,hl
+	add hl,hl
+	ld bc,graphics
+	add hl,bc
+	push de
+	push de
+	call print_char
+	pop hl
+	call screen2att
+	ld de,colours
+	ld a,(ix+0)
+	add a,e
+	ld e,a
+	ld a,(de)
+	ld (hl),a
+	pop de
+	inc ix
+	inc e
+	call z,newseg
+	jr dslp
+	;
+newseg	ld a,d
+	add a,8
+	ld d,a
+	ret
+	;
+nextrowdown			;finds next row down in DF in DE
+	ld a,e
+	add a,32
+	ld e,a
+	ret nc
+	ld a,d			;carry set, means we have crossed a segment boundary
+	add a,8
+	ld d,a
+	ret
+	;
+getoldmapblocks
+	ld ix,udgtab
+	ld a,(number_of_baddies)
+	inc a
+	ld b,a
+	;
+gomlp	ld d,(ix+4)
+	ld (ix+1),d	;put current xy into old xy before we move anything
+	ld e,(ix+3)
+	ld (ix+0),e
+	call cord2map	;and get the block type underneath it to delete next time
+	ld a,(hl)
+	ld (ix+2),a	;
+	;
+	ld de,length_of_udg_tab
+	add ix,de
+	djnz gomlp
+	ret
+	;
+set_counters_to_blocks	;counts the number of blocks on the screen then sets the counters accordingly
+	nop		;we insert a 201 (RET) via the editor if we don't use this routine
+	ld a,(counter1block)
+	call scb	;sets HL to the number of block held in A (passed to B)
+	ld (counter1),hl
+	ld a,(counter2block)
+	call scb
+	ld (counter2),hl
+	ld a,(counter3block)
+	call scb
+	ld (counter3),hl
+	ret
+	;
+scb	ld b,a		;b holds the block number we want	
+	ld hl,0
+	ld ix,map_book	;the new screen has been installed here
+cblp	ld a,(ix+0)	;get byte
+	cp 255		;255 marks the end of the map
+	ret z		;so return if so
+	cp b		;is it the block we're counting
+	inc ix		;ready for next byte whatever
+	jr nz,cblp	;nz means not same block, so don't inc HL
+	inc hl		;z means same block, so INC HL for the counter
+	jr cblp		;keep going until we hit defb 255
+	;
+counter1block	defb	1		;different numbers are poked in here via the editor
+counter2block	defb	2
+counter3block	defb	3	
+	;
+guardian_control
+	ld ix,badtab
+	ld a,(number_of_baddies)
+	or a
+	ret z
+	ld b,a
+gclp	push bc
+	;	
+	call gcont	;control one baddy
+	;
+	pop bc
+	ld de,length_of_udg_tab
+	add ix,de
+	djnz gclp
+	ret
+	;
+gcont	ld a,(ix+12)
+	or a
+	ret nz		
+	ld a,(loop_counter)
+	and (ix+5)	;speed control
+	cp (ix+5)
+	ret nz	
+	ld a,(ix+6)	;control byte
+	add a,a		;byte to word
+	ld h,0
+	ld l,a
+	ld de,control_routines
+	add hl,de
+	ld e,(hl)
+	inc hl
+	ld d,(hl)
+	ex de,hl
+	jp (hl)
+	;
+vertical_patrol
+	ld a,(ix+7)	;bit0 set is up, not set is down
+	rra
+	call vdo
+	cp 255
+	ret nz
+	inc (ix+7)
+	ret
+vdo	jp nc,gdown
+	jp gup
+rvdo	jp c,gdown	;sprite runs away from player sprite
+	jp gup
+	;
+horizontal_patrol
+	ld a,(ix+8)	;
+	rra
+	call hdo
+	cp 255
+	ret nz
+	inc (ix+8)
+	ret
+hdo	jp nc,gright
+	jp gleft
+rhdo	jp c,gright	;sprite runs away from player sprite
+	jp gleft
+	;
+downonly		;for example like a raindrop
+	call gdown
+	cp 255		;255 means something is blocking us
+	ret nz
+	jp goffbottom	;so do the thing we do when we hit the bottom
+	;
+uponly
+	call gup
+	cp 255
+	ret nz
+	jp gofftop
+	;
+rightonly
+	call gright
+	cp 255
+	ret nz
+	jp goffright
+	;
+leftonly
+	call gleft
+	cp 255
+	ret nz
+	jp goffleft
+	;
+diagonal_patrol
+	call vertical_patrol
+	jp horizontal_patrol
+	;
+horizontal_snake
+	call horizontal_patrol
+	cp 255
+	ret nz
+	jp vertical_patrol
+	;
+vertical_snake
+	call vertical_patrol
+	cp 255
+	ret nz
+	jp horizontal_patrol
+	;
+diagonal_chaser
+	ld a,(xcor)
+	cp (ix+0)
+	call hdo
+	ld a,(ycor)
+	cp (ix+1)
+	jp vdo
+	;
+runaway
+	ld a,(xcor)
+	cp (ix+0)
+	call rhdo
+	ld a,(ycor)
+	cp (ix+1)
+	jp rvdo
+	;
+runawaywander		;sometimes runs away, sometimes wanders
+	call rnd
+	cp 40
+	jp nc,unidirectional_wander
+	jp runaway
+	;
+fitsandstarts		;doesn't move for a bit, then moves a lot
+	ld a,(loop_counter)	;low byte of counter
+	cp 100
+	ret c
+	jp unidirectional_wander
+	;
+unidirectional_chase
+	ld a,(loop_counter)
+	cp 30
+	jp c,diagonal_chaser	;some times we chase, others we wander
+	;
+unidirectional_wander		;move so far in one direction at a time, then change and repeat
+	ld a,(ix+8)			;for this type, ix+7 is direction, ix+8 is distance
+	or a				;has the distance counter gone all the way down?
+	call z,change_direction_and_distance
+	dec (ix+8)
+	call uwdo
+	cp 255
+	ret nz
+	ld a,(ix+7)		;if we reach here we are trying to move against a block
+	inc a
+	and 3
+	ld (ix+7),a
+	ret
+uwdo	ld a,(ix+7)
+	or a
+	jp z,gright
+	dec a
+	jp z,gdown
+	dec a
+	jp z,gleft
+	jp gup
+	;
+change_direction_and_distance
+	call rnd
+	and 15
+	or 3
+	ld (ix+8),a
+	call rnd
+	ld b,(ix+7)
+	and 3
+	cp b
+	jr nz,cdmiss
+	dec a
+	and 3
+cdmiss	ld (ix+7),a
+	ret
+	;
+vibrator	;crap movement, random in any direction
+	call rnd
+	and 3
+	or a
+	jp z,gright
+	dec a
+	jp z,gup
+	dec a
+	jp z,gleft
+	jp gdown
+	;
+any_23560	;wait for key press, uses ROM key read variable
+	xor a
+	ld (23560),a
+aklp	ld a,(23560)
+	or a
+	jr z,aklp
+	ret
+	;
+no_key	xor a			;wait for no key press
+	in a,(254)
+	and 31
+	xor 31
+	jr nz,no_key
+	ret
+	;
+refine_keys
+	call cls
+	ld a,(intro_screen_colour)
+	call pf2
+	ld ix,refine_keys_string
+	call print_string
+	call no_key
+	ld ix,upstring	;
+	call print_string
+	ld ix,bc1
+	ld hl,and1
+	call do_key		;find key pressed
+	call get_char
+	call print_char
+	;
+	call no_key
+	ld ix,dnstring		;
+	call print_string
+	ld ix,bc2
+	ld hl,and2
+	call do_key		;find key pressed
+	call get_char
+	call print_char
+	;
+	call no_key
+	ld ix,leftstring
+	call print_string
+	ld ix,bc3
+	ld hl,and3
+	call do_key		;find key pressed
+	call get_char
+	call print_char
+	;
+	call no_key
+	ld ix,rightstring
+	call print_string
+	ld ix,bc4
+	ld hl,and4
+	call do_key		;find key pressed
+	call get_char
+	call print_char
+	;
+	call no_key
+	ld ix,pausestring
+	call print_string
+	call any_23560
+	ld (psk),a
+	call get_char
+	call print_char
+	;
+	ld hl,romk		;poke some of the values in where appropriate
+	ld a,(hl)
+	ld (kp1+1),a
+	ld (tk1+1),a
+	inc hl
+	inc hl
+	ld a,(hl)
+	ld (kp2+1),a
+	ld (tk2+1),a
+	inc hl
+	inc hl
+	ld a,(hl)
+	ld (kp3+1),a
+	ld (tk3+1),a
+	inc hl
+	inc hl
+	ld a,(hl)
+	ld (kp4+1),a
+	ld (tk4+1),a
+	;
+	ret
+	;
+refine_keys_string	defb	10,0,	'REFINE KEYS',255
+upstring		defb	13,4,	'UP:   ',255
+dnstring		defb	13,6,	'DOWN  ',255
+leftstring		defb	13,8,	'LEFT  ',255
+rightstring		defb	13,10,	'RIGHT ',255
+pausestring		defb	13,12,	'PAUSE ',255
+	;
+do_key	ld bc,65278		;the highest port, 254 in both b and c
+rdlp1	in a,(c)		;read that key row, check for keypress
+	and 31
+	xor 31			;if no key pressed, xor 31 gives zero
+	jr nz,get_key		;aha! a key pressed, record it
+	rlc b			;no key pressed, scroll through all the ports to check for more
+	jr rdlp1		;continue checking until we have all 5 keys
+	;
+get_key
+	ld (hl),a		;hl is pointing at the bit where you AND, eg 1 for bit 0, 2 for bit 1 etc
+	ld (ix+0),c
+	ld (ix+1),b		;get bc port which key press relates to
+	inc hl
+	halt
+	halt
+	ld a,(23560)
+	ld (hl),a		;store ASCII for keypress
+	ret
+	;
+and1	defb	1			;these addresses loaded with bc and AND data for keyread in main loop
+romk	defb	0
+and2	defb	1
+	defb	0
+and3	defb	2
+	defb	0
+and4	defb	1
+	defb	0
+and5	defb	1
+	defb	0
+and6	defb	16
+psk	defb	0			;pause key
+bc1	defw	64510
+bc2	defw	65022			;default set for the holy four
+bc3	defw	57342
+bc4	defw	57342
+bc5	defw	32766			;space row
+bc6	defw	49150
+	;
+check_keys1		;good version of keyread, needs ix at udgtab for this
+	ld a,(loop_counter)
+	and (ix+5)	;speed control
+	cp (ix+5)
+	ret nz
+	ld bc,(bc1)
+	ld hl,and1
+	in a,(c)
+	and (hl)
+	call z,up
+	ld bc,(bc2)
+	ld hl,and2
+	in a,(c)
+	and (hl)
+	call z,down
+	ld bc,(bc3)
+	ld hl,and3
+	in a,(c)
+	and (hl)
+	call z,left
+	ld bc,(bc4)
+	ld hl,and4
+	in a,(c)
+	and (hl)
+	call z,right
+	ret
+	;
+check_keys3		;good version of keyread, single key press
+	ld a,(loop_counter)
+	and (ix+5)	;speed control
+	cp (ix+5)
+	ret nz
+	ld bc,(bc1)
+	ld hl,and1
+	in a,(c)
+	and (hl)
+	jp z,up
+	ld bc,(bc2)
+	ld hl,and2
+	in a,(c)
+	and (hl)
+	jp z,down
+	ld bc,(bc3)
+	ld hl,and3
+	in a,(c)
+	and (hl)
+	jp z,left
+	ld bc,(bc4)
+	ld hl,and4
+	in a,(c)
+	and (hl)
+	jp z,right
+	ret
+	;
+check_keys2			;pacman style controls, one key maintains a direction until we can move
+	ld a,(loop_counter)
+	and (ix+5)
+	cp (ix+5)
+	ret nz
+	ld a,(23560)
+	call kp1;chk
+	cp 255
+	jr nz,here
+	ld a,(direction)
+kp1	cp 'q'
+	jp z,up
+kp2	cp 'a'
+	jp z,down
+kp3	cp 'o'
+	jp z,left
+kp4	cp 'p'
+	jp z,right
+	ld a,255	;no action key pressed,
+	ret
+	;
+here	ld a,(23560)
+	ld (direction),a
+	ret
+	;
+turn_based_keys
+	call any_23560
+tk1	cp 'q'
+	jp z,up
+tk2	cp 'a'
+	jp z,down
+tk3	cp 'o'
+	jp z,left
+tk4	cp 'p'
+	jp z,right
+	cp 'z'
+	ret z
+	jr turn_based_keys
+	;
+up	ld (ix+13),0
+	ld (ix+2),34	;up graphics
+	ld a,(ix+1)
+	or a
+	jp z,pofftop
+	ld d,(ix+1)
+	ld e,(ix+0)
+	dec d		;we're checking next block up
+	call cord2map	;point yx at de to HL in map
+	ld (ix+4),h
+	ld (ix+3),l	;save map position we want to move into
+	call jump_table_decision
+	cp 255
+	ret z
+	dec (ix+1)
+	call movebeep
+	xor a
+	ret
+	;
+pofftop
+	ld a,(player_screen_edge_byte)
+	ld de,screen_top_tab
+	jp go_jptab	;does the jump table using things sets above
+	;
+gup	ld (ix+13),0	
+	ld a,(ix+1)
+	or a
+	jp z,gofftop
+	ld d,(ix+1)
+	ld e,(ix+0)
+	dec d		;we're checking next block up
+	call cord2map	;point yx at de to HL in map
+	ld (ix+4),h
+	ld (ix+3),l	;save map position we want to move into
+	call guardian_jump_table_decision
+	cp 255
+	ret z
+	dec (ix+1)
+	xor a
+	ret
+	;
+gofftop	ld a,(baddy_screen_edge_byte)
+	ld de,screen_top_tab
+	jp go_jptab	;does the jump table using things sets above
+	;
+down	ld (ix+13),2	
+	ld (ix+2),35;	down graphic
+	ld a,(ix+1)
+	cp 21
+	jp z,poffbottom
+	ld d,(ix+1)
+	ld e,(ix+0)
+	inc d		;we're checking next block down
+	call cord2map	;point yx at de to HL in map
+	ld (ix+4),h
+	ld (ix+3),l	;save map position we want to move into
+	call jump_table_decision
+	cp 255
+	ret z
+	inc (ix+1)
+	call movebeep
+	xor a
+	ret
+	;
+poffbottom
+	ld a,(player_screen_edge_byte)
+	ld de,screen_bottom_tab
+	jp go_jptab	;does the jump table using things sets above
+	;
+off_bottom
+	ld (ix+1),0
+	ret
+	;
+roff_bottom	;random screen wrap
+	call rnd
+	and 31
+	ld (ix+0),a
+	ld (ix+1),0
+	ret
+	;
+savescr	call redo_baddies	;the baddy blocks (>31) have been removed, so reinsert	
+	call find_screen	;we need to put the 'used' screen in the library (eg collected items kept collected etc)
+	ex de,hl		;point DE at the correct place in the map library
+	ld hl,map_book
+	ld bc,705
+	ldir	
+	ret	
+	;
+redo_baddies			;bit of a hack, the drawscreen removes the baddies
+	ld hl,mapstore-705
+	call find_library_screen	;point hl at untainted equivalent map in the library
+	ld de,map_book
+rblp	ld a,(hl)
+	cp 255
+	ret z
+	cp 32
+	jr c,rbm		;<32 means block, which we don't want to change
+	ld (de),a		;>31 means baddy, so insert
+rbm	inc hl
+	inc de
+	jr rblp
+	;
+down_screen
+	ld a,(level)	;in this case level = screen number in map
+	cp 7		;if 7,8 or 9 we can't go down anymore
+	ret nc
+	call savescr		
+	ld a,(level)
+	add a,3		;distance between rows in map
+	ld (level),a
+	ld (ix+1),0	;set ycor to top of screen
+	push ix
+	call draw_game_screen
+	call print_bottom_info
+	pop ix
+	ret
+	;
+up_screen
+	ld a,(level)	;in this case level = screen number in map
+	cp 4		;if 1,2 or 3 we can't go up anymore
+	ret c
+	call savescr		
+	ld a,(level)
+	sub 3		;distance between rows in map
+	ld (level),a
+	ld (ix+1),21	;set ycor to top of screen
+	push ix
+	call draw_game_screen
+	call print_bottom_info
+	pop ix
+	ret
+	;
+right_screen
+	ld a,(level)
+	cp 3
+	ret z
+	cp 6
+	ret z
+	cp 9
+	ret z		;3,6,9 are at the far right thus no move possible
+	call savescr		
+	ld a,(level)
+	inc a
+	ld (level),a
+	ld (ix+0),0
+	push ix
+	call draw_game_screen
+	call print_bottom_info
+	pop ix
+	ret
+	;
+left_screen
+	ld a,(level)
+	cp 1
+	ret z
+	cp 4
+	ret z
+	cp 7
+	ret z		;1,4,7 are at the far left thus no move possible
+	call savescr		
+	ld a,(level)
+	dec a
+	ld (level),a
+	ld (ix+0),31
+	push ix
+	call draw_game_screen
+	call print_bottom_info
+	pop ix
+	ret
+	;
+off_top
+	ld (ix+1),21
+	ret
+	;
+roff_top	;random screen wrap
+	call rnd
+	and 31
+	ld (ix+0),a
+	ld (ix+1),21
+	ret
+	;
+off_right
+	ld (ix+0),0
+	ret
+	;
+roff_right
+	call rnd
+	and 31
+	cp 22
+	jr nc,roff_right
+	ld (ix+1),a
+	ld (ix+0),0
+	ret
+	;
+off_left
+	ld (ix+0),31
+	ret
+	;
+	;
+roff_left
+	call rnd
+	and 31
+	cp 22
+	jr nc,roff_left
+	ld (ix+1),a
+	ld (ix+0),31
+	ret
+	;
+	;
+screen_bottom_tab
+	defw	return_255
+	defw	off_bottom
+	defw	roff_bottom
+	defw	down_screen
+	;
+screen_top_tab
+	defw	return_255
+	defw	off_top
+	defw	roff_top
+	defw	up_screen
+	;
+screen_right_tab
+	defw	return_255
+	defw	off_right
+	defw	roff_right
+	defw	right_screen
+	;
+screen_left_tab
+	defw	return_255
+	defw	off_left
+	defw	roff_left
+	defw	left_screen
+	;
+gdown	ld (ix+13),2	
+	ld a,(ix+1)	;ycor
+	cp 21
+	jp nc,goffbottom
+	ld d,(ix+1)
+	ld e,(ix+0)
+	inc d		;we're checking next block down
+	call cord2map	;point yx at de to HL in map
+	ld (ix+4),h
+	ld (ix+3),l	;save map position we want to move into
+	call guardian_jump_table_decision
+	cp 255
+	ret z
+	inc (ix+1)
+	xor a
+	ret
+	;
+goffbottom
+	ld a,(baddy_screen_edge_byte)
+	ld de,screen_bottom_tab
+	jp go_jptab	;does the jump table using things sets above
+	;
+right	ld (ix+13),1
+	ld (ix+2),32	;right graphic	
+	ld a,(ix+0)
+	cp 31
+	jp z,poffright
+	ld d,(ix+1)
+	ld e,(ix+0)
+	inc e		;block to right
+	call cord2map	;point yx at de to HL in map
+	ld (ix+4),h
+	ld (ix+3),l	;save map position we want to move into
+	call jump_table_decision
+	cp 255
+	ret z
+	inc (ix+0)
+	call movebeep
+	xor a
+	ret
+	;
+poffright
+	ld a,(player_screen_edge_byte)
+	ld de,screen_right_tab
+	jp go_jptab	;does the jump table using things sets above
+	;
+gright	ld (ix+13),1	
+	ld a,(ix+0)
+	cp 31
+	jp z,goffright
+	ld d,(ix+1)
+	ld e,(ix+0)
+	inc e		;block to right
+	call cord2map	;point yx at de to HL in map
+	ld (ix+4),h
+	ld (ix+3),l	;save map position we want to move into
+	call guardian_jump_table_decision
+	cp 255
+	ret z
+	inc (ix+0)
+	xor a
+	ret
+goffright
+	ld a,(baddy_screen_edge_byte)
+	ld de,screen_right_tab
+	jp go_jptab	;does the jump table using things sets above
+	;
+left	ld (ix+13),3	
+	ld (ix+2),33	;left graphic	
+	ld a,(ix+0)
+	or a
+	jp z,poffleft
+	ld d,(ix+1)
+	ld e,(ix+0)
+	dec e		;block to left
+	call cord2map	;point yx at de to HL in map
+	ld (ix+4),h
+	ld (ix+3),l	;save map position we want to move into
+	call jump_table_decision
+	cp 255
+	ret z
+	dec (ix+0)
+	call movebeep
+	xor a
+	ret
+	;
+poffleft
+	ld a,(player_screen_edge_byte)
+	ld de,screen_left_tab
+	jp go_jptab	;does the jump table using things sets above
+	;
+gleft	ld (ix+13),3	
+	ld a,(ix+0)
+	or a
+	jp z,goffleft
+	ld d,(ix+1)
+	ld e,(ix+0)
+	dec e		;block to left
+	call cord2map	;point yx at de to HL in map
+	ld (ix+4),h
+	ld (ix+3),l	;save map position we want to move into
+	call guardian_jump_table_decision
+	cp 255
+	ret z
+	dec (ix+0)
+	xor a
+	ret
+goffleft
+	ld a,(baddy_screen_edge_byte)
+	ld de,screen_left_tab
+	jp go_jptab	;does the jump table using things sets above
+	;
+jump_table_decision
+	ld a,(hl)	;hl pointing at block to be moved into
+	add a,a		;convert byte to word
+	ld d,0
+	ld e,a
+	ld hl,player_jump_table
+	add hl,de
+	ld e,(hl)
+	inc hl
+	ld d,(hl)
+	ex de,hl
+	jp (hl)		;jumps to a routine, the RET of which takes us back to our direction request
+	;
+guardian_jump_table_decision
+	ld a,(hl)	;hl pointing at block to be moved into
+	add a,a		;convert byte to word
+	ld d,0
+	ld e,a
+	ld hl,baddy_jump_table
+	add hl,de
+	ld e,(hl)
+	inc hl
+	ld d,(hl)
+	ex de,hl
+	jp (hl)		;jumps to a routine, the RET of which takes us back to our direction request
+	;
+collision_check
+	ld a,(immunity_flag)
+	or a		;not set means we go straight for collision check
+	jr z,ccj
+	dec a		;decrease timer
+	ld (immunity_flag),a
+	out (254),a	;indicate with flashibg border
+	ret nz
+	ld a,(game_border)
+	out (254),a
+	ret
+ccj	ld ix,badtab
+	ld a,(number_of_baddies)
+	or a
+	ret z
+	ld b,a
+	;
+cclp	call cudg	;check one sprite
+	;
+	ld de,length_of_udg_tab
+	add ix,de
+	djnz cclp
+	ret
+
+cudg	ld a,(ix+12)
+	or a
+	ret nz		
+	ld a,(xcor)
+	xor (ix+0)
+	ret nz
+	ld a,(ycor)
+	xor (ix+1)
+	ret nz
+	ld a,(ix+11)	;ok we have a collision, get effect byte and jump to correct routine
+	add a,a		;byte to word
+	ld h,0
+	ld l,a
+	ld de,collision_effects
+	add hl,de
+	ld e,(hl)
+	inc hl
+	ld d,(hl)
+	ex de,hl
+	jp (hl)
+	ret	
+	;
+delete_udgs
+	ld ix,udgtab
+	ld a,(number_of_baddies)
+	inc a		;plus one for the player
+	ld b,a
+	;
+delp2	call delp
+	;
+	ld de,length_of_udg_tab
+	add ix,de
+	djnz delp2
+	ret
+	;
+delp	ld a,(ix+12)
+	or a
+	ret nz		
+delpy	push bc		;save counter
+	ld d,(ix+10)
+	ld e,(ix+9)
+	call cord2map
+	ld a,(hl)	;get tile number that player is standing on
+	push af
+	call get_block	;hl now pointing at correct graphics
+	ld b,(ix+10)
+	ld c,(ix+9)
+	call cord2scr	;point de at screen address
+	call print_char	;print HL at DE
+	call screen2att	;change DE scradd to HL attrs
+	pop af		;get char number back
+	ld de,colours
+	add a,e
+	ld e,a
+	ld a,(de)
+	ld (hl),a
+	pop bc		;pop counter
+	ret
+	;
+draw_udgs
+	ld ix,udgtab
+	ld a,(number_of_baddies)
+	inc a
+	ld b,a
+	;
+drlp2 	call drlp
+	;
+	ld de,length_of_udg_tab
+	add ix,de
+	djnz drlp2
+	ret
+	;
+drlp	ld a,(ix+12)
+	or a
+	ret nz	
+dddd	push bc
+	ld b,(ix+1)
+	ld c,(ix+0)	;new xy to draw
+	ld (ix+10),b
+	ld (ix+9),c	;put into oldxy for deletion
+	call cord2scr
+	ld a,(ix+2)	;graphic in table
+	push af
+	call get_block
+	call print_char
+	call screen2att
+	pop af
+	call colsp_transparent_paper
+	pop bc
+	ret
+	;
+colsp	ld de,colours
+	add a,e
+	ld e,a
+	ld a,(de)
+	ld (hl),a
+	ret
+	;
+colsp_transparent_paper
+	ld de,colours
+	add a,e
+	ld e,a
+	ld a,(hl)
+	and 248		;take paper,bright and flash of backgroun
+	ld c,a
+	ld a,(de)	;get colour
+	and 7		;ink only
+	or c		;or the background paper 
+	ld (hl),a	;put on screen
+	ret
+	;
+get_level_screen		;finds correct screen for the level
+	call find_screen	;point hl at the correct map
+	ld de,map_book
+	ld bc,705
+	ldir			;correct screen now moved into mapbook
+	ret
+find_screen
+	ld hl,map1-705
+find_library_screen		;enter here with hl at mapstore-705 if you want to find a place in the map library
+	ld de,705
+	ld a,(level)		;level starts at 1, must not be zero
+	ld b,a
+glvlp	add hl,de
+	djnz glvlp
+	ret
+	;
+get_multi_screen		;finds current screen and ldirs it into the 'notebook' at 32768
+	;ROUTINE IS DIFFERENT FOR A SINGLE SCREEN GAME
+	ld a,(map_x)	;x will be 0,1,2
+	ld hl,map1-705	;1 map before the first
+	inc a		;make it 1,2,3 for djnz
+	ld b,a
+	ld de,705
+gslp	add hl,de
+	djnz gslp	;hl now pointing at the correct map x
+	ld a,(map_y)
+	or a		;will be either 0,1,2, if 0 we are in the correct place
+	jr z,gso
+	ld de,705*3	;distance between rows
+	ld b,a
+gslp2	add hl,de
+	djnz gslp2	
+gso	ld de,map_book	;map found, now move it into the scratchpad
+	ld bc,705
+	ldir
+	ret	
+	;
+findstring		;arrive with b holding string number, 1 is dummy, and ix pointing at the string list
+	ld a,(ix+0)
+	inc ix
+	cp 255
+	jr z,fmiss
+	jr findstring	;move through one string until we find the end
+fmiss	djnz findstring	;repeat b times
+	ret
+	;
+get_block_colour
+	ld h,0
+	ld l,a
+	ld de,colours
+	add hl,de	
+	ld a,(hl)
+	ret
+	;
+get_colour		;get colour value of current udg, returns with HL pointing at the correct byte
+	ld a,(udgno)
+gcl	ld h,0
+	ld l,a
+colourseed
+	ld de,colours
+	add hl,de	
+	ld a,(hl)
+	;
+colpok	defb	201		;dodgy this, 201 (RET) poked in here if doing udgs, nop if not
+	;
+	ld hl,0
+colpok2	ld a,007
+	ret
+	;
+get_block
+	ld bc,graphics
+	ld h,0
+	ld l,a
+	add hl,hl	;x2
+	add hl,hl	;x4
+	add hl,hl	;x8
+	add hl,bc
+	ret
+	;
+get_char
+	ld bc,font-256		;15616-256
+	ld h,0
+	ld l,a
+	add hl,hl	;x2
+	add hl,hl	;x4
+	add hl,hl	;x8
+	add hl,bc
+	ret
+	;
+print_double_height	;8 x 16 font
+	ld c,2
+pdhlp2	push de
+	ld b,4
+pdhlp	ld a,(hl)
+	ld (de),a
+	inc d
+	ld (de),a
+	inc hl
+	inc d
+	djnz pdhlp
+	pop de
+	ld a,e
+	add a,32
+	ld e,a
+	dec c
+	jr nz,pdhlp2
+	ret
+	;
+print_char
+	ld a,(hl)
+	ld (de),a
+	inc d
+	inc hl
+	ld a,(hl)
+	ld (de),a
+	inc d
+	inc hl
+	ld a,(hl)
+	ld (de),a
+	inc d
+	inc hl
+	ld a,(hl)
+	ld (de),a
+	inc d
+	inc hl
+	ld a,(hl)
+	ld (de),a
+	inc d
+	inc hl
+	ld a,(hl)
+	ld (de),a
+	inc d
+	inc hl
+	ld a,(hl)
+	ld (de),a
+	inc d
+	inc hl
+	ld a,(hl)
+	ld (de),a
+	ret
+	;
+cord2scr	;converts ycor in B, xcor in C to a display file address in DE, from David Webb's Advanced Machine Code book
+	ld a,b
+	and 248
+	or 64
+	ld d,a
+	ld a,b
+	and 7
+	rrca
+	rrca
+	rrca
+	add a,c
+	ld e,a
+	ret
+	;
+scr2cord	;converts screen address in DE to ycor in B, xcor in C, designed this myself
+	ld a,e
+	and 31
+	ld c,a	;that's the xcor sorted, a number 0-31 that is the column number
+	ld a,e
+	and 224	;get left 3 bits of e
+	rlca	;left 3 times is faster than right 5 times
+	rlca
+	rlca
+	ld e,a	;which when put into bits 0,1,2 puts us in the correct place within a segment
+	ld a,d	;now find which segment
+	and 24	;this will leave us with 3 possible bit pattersn, equal to top, middle or bottom segment
+	or e	;which when ORd with e give us a number 0-23
+	ld b,a
+	ret
+	;
+cord2map	;converts ycor in D, xcor in E to map address in HL
+	ld h,0
+	ld l,d	;ycor
+	add hl,hl
+	add hl,hl
+	add hl,hl
+	add hl,hl
+	add hl,hl	;x32
+	ld a,e		;xcor
+	or l
+	ld l,a
+	ld de,map_book
+	add hl,de
+	ret
+	;
+screen2att	;from 'ADVANCED SPECTRUM MACHINE LANGUAGE'
+	ld a,d	;arrive with DE pointing at display file address
+	rrca	;exits with HL pointing at corresponding attribute cell
+	rrca
+	rrca
+	and 3
+	or 88
+	ld h,a
+	ld l,e
+	ret
+	;
+map2screen	;modified, takes map byte at 49152+6144 and converts to screen address
+	ld a,h	;from ADVANCED SPECTRUM MACHINE LANGUAGE
+	and 3	;arrive with hl pointing at attribute (or map following buffer)
+	rlca	;returns with hl pointing at screen
+	rlca
+	rlca
+	or 64
+	ld h,a
+	ret
+	;
+print_seg				;starting on a word boundary prints an entire segment
+	ld a,(ix+0)
+	call get_char
+	push de
+	call print_char
+	pop de
+	inc ix
+	inc e				;it is a full word of text, done this way as it's easier to edit
+	jr nz,print_seg
+	ret
+	;
+print_string
+	ld a,(ix+0)	;print string loop
+	cp 255
+	ret z
+	cp 32
+	call c,string_coords	;the next two bytes are xcor/ycor if <32
+	cp 254
+	call z,nextrowdisp	;254 is a control code for next row down and add the following byte displacement on
+	call get_char	;point hl at graphic for the ASCII in A
+	push de
+pspok	call print_char	;print HL at cell addressed by DE
+	pop de		;pop DE back to top of char cell
+	inc e
+	call z,newseg
+	inc ix
+	jr print_string
+	;
+string_coords		;'ASCII' is <32 so must be xcor/ycor
+	ld b,(ix+1)	;ycor
+	ld c,(ix+0)	;xcor
+	call cord2scr	;point DE at this place on the screen
+	inc ix
+	inc ix		;move over the two coords into string
+	ld a,(ix+0)
+	ret
+	;
+nextrowdisp
+	call nextrowdown	;point DE at next row down
+	inc ix			;skip over control code and onto displacemet byte
+	ld a,e
+	and 224			;set DE to column = 0
+	or (ix+0)		;or displacement byte
+	ld e,a
+	inc ix			;onto next ASCII
+	ld a,(ix+0)
+	ret
+	
+	;
+;;PATRICK RAK's XOR SHIFT RANDOM NUMBER GENERATOR, set hl and de as seed then just call when you want, returns rnd in a
+rnd     ld  hl,0xA280   ; xz -> yw		;SEEDS SET ON ENTRY
+        ld  de,0xC0DE   ; yw -> zt
+        ld  (rnd+1),de  ; x = y, z = w
+        ld  a,e         ; w = w ^ ( w << 3 )
+        add a,a
+        add a,a
+        add a,a
+        xor e
+        ld  e,a
+        ld  a,h         ; t = x ^ (x << 1)
+        add a,a
+        xor h
+        ld  d,a
+        rra             ; t = t ^ (t >> 1) ^ w
+        xor d
+        xor e
+        ld  h,l         ; y = z
+        ld  l,a         ; w = t
+        ld  (rnd+4),hl
+        ret
+	;
+control_routines
+	defw	vertical_patrol
+	defw	horizontal_patrol
+	defw	diagonal_patrol
+	defw	horizontal_snake
+	defw	vertical_snake
+	defw	diagonal_chaser
+	defw	unidirectional_wander
+	defw	unidirectional_chase
+	defw	vibrator
+	defw	runaway
+	defw	runawaywander
+	defw	fitsandstarts
+	defw	downonly
+	defw	uponly
+	defw	rightonly
+	defw	leftonly
+	;
+collision_effects
+	defw	do_nothing
+	defw	kill_player
+	defw	kill_sprite
+	defw	decrease_counter1
+	;
+baddy_jump_table		;32 words for 32 possible blocks
+	defw	do_nothing	;the editor pokes selected words in here
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	;
+player_jump_table		;32 words for 32 possible blocks
+	defw	do_nothing	;the editor pokes selected words in here
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	defw	do_nothing
+	;
+do_nothing	
+	xor a
+dnth	ret
+	;
+return_255
+	;inc (ix+7)  NEEDED?
+	ld a,255
+	ret
+	;
+solid_block
+	;inc (ix+7)	;to toggle the direction byte of guardians
+	ld a,255	;255 means we can't move in the direction routines
+	ret
+	;
+change_guardian_type
+	ld a,(ix+6)	;guardian control byte
+	inc a
+	and 3
+	ld (ix+6),a
+	ret
+	;
+makespritedown
+	ld (ix+6),12
+	ret
+makespriteup
+	ld (ix+6),13
+	ret
+makespriteright
+	ld (ix+6),14
+	ret
+makespriteleft
+	ld (ix+6),15
+	ret
+makespriterandom
+	call rnd
+	and 3		;random number 0,1,2 or 3
+	add a,12	;random number 12,13,14,15
+	ld (ix+6),a	;make sprite this direction
+	ret
+
+	;
+kill_all_baddies	;allows movement and kills all baddies
+	push ix
+	call delete_udgs	
+	pop ix
+	call zzapp
+	xor a
+	ld (number_of_baddies),a
+	ret
+	;
+slow_block	;only allow movement 1 time in 4
+	ld a,(loop_counter)
+	and 3
+	cp 3
+	jp nz,solid_block
+	xor a
+	ret
+	;
+decrease_block_number
+	ld h,(ix+4)
+	ld l,(ix+3)	;get map position we are moving to
+	ld a,(hl)
+	dec a
+	and 31		;there are only 32 blocks
+	ld (hl),a
+	xor a		;not 255 on RET means we can move
+	ret
+	;
+increase_block_number
+	ld h,(ix+4)
+	ld l,(ix+3)	;get map position we are moving to
+	ld a,(hl)
+	inc a
+	and 31		;there are only 32 blocks
+	ld (hl),a
+	xor a		;not 255 on RET means we can move
+	ret
+	;
+zero_counter1
+	ld hl,0
+	ld (counter1),hl
+	jp c1
+zero_counter2
+	ld hl,0
+	ld (counter2),hl
+	jp c2
+zero_counter3
+	ld hl,0
+	ld (counter3),a
+	jp c3
+	;
+dec_counter1		;block we're moving to is a collectable
+	call decrease_counter1
+c1	ld h,(ix+4)
+	ld l,(ix+3)	;get map position we are moving to
+	ld (hl),1	;insert background into map, the player moves onto this so it is deleted next time it moves
+	xor a		;not 255 on RET means we can move
+	ret
+	;
+toggle_ALL_flags
+	ld b,3
+	ld hl,flag1
+taflp	ld a,(hl)
+	xor 255
+	ld (hl),a
+	inc hl
+	djnz taflp
+	ld h,(ix+4)
+	ld l,(ix+3)	;get map position we are moving to
+	ld (hl),0	;insert background into map, the player moves onto this so it is deleted next time it moves
+	xor a		;not 255 on RET means we can move
+	ret
+	;
+all_flags_ON
+	ld a,255
+	ld (flag1),a
+	ld (flag2),a
+	ld (flag3),a
+	ld h,(ix+4)
+	ld l,(ix+3)	;get map position we are moving to
+	ld (hl),0	;insert background into map, the player moves onto this so it is deleted next time it moves
+	xor a		;not 255 on RET means we can move
+	ret
+	;
+all_flags_OFF
+	ld a,0
+	ld (flag1),a
+	ld (flag2),a
+	ld (flag3),a
+	ld h,(ix+4)
+	ld l,(ix+3)	;get map position we are moving to
+	ld (hl),0	;insert background into map, the player moves onto this so it is deleted next time it moves
+	xor a		;not 255 on RET means we can move
+	ret
+	;
+set_flag1
+	ld a,255
+	ld (flag1),a
+rmap1	ld h,(ix+4)
+	ld l,(ix+3)	;get map position we are moving to
+	ld (hl),1	;insert background into map, the player moves onto this so it is deleted next time it moves
+	xor a		;not 255 on RET means we can move
+	ret
+	;
+unset_flag1
+	ld a,0
+	ld (flag1),a
+	jr rmap1
+	;
+set_flag2
+	ld a,255
+	ld (flag2),a
+rmap2	ld h,(ix+4)
+	ld l,(ix+3)	;get map position we are moving to
+	ld (hl),0	;insert background into map, the player moves onto this so it is deleted next time it moves
+	xor a		;not 255 on RET means we can move
+	ret
+unset_flag2
+	ld a,0
+	ld (flag2),a
+	jr rmap2
+	;
+set_flag3
+	ld a,255
+	ld (flag3),a
+rmap3	ld h,(ix+4)
+	ld l,(ix+3)	;get map position we are moving to
+	ld (hl),0	;insert background into map, the player moves onto this so it is deleted next time it moves
+	xor a		;not 255 on RET means we can move
+	ret
+unset_flag3
+	ld a,0
+	ld (flag1),a
+	jr rmap3
+	;
+dec_counter2		;block we're moving to is a collectable
+	call decrease_counter2
+c2	ld h,(ix+4)
+	ld l,(ix+3)	;get map position we are moving to
+	ld (hl),2	;insert background into map, the player moves onto this so it is deleted next time it moves
+	xor a		;not 255 on RET means we can move
+	ret
+dec_counter3		;block we're moving to is a collectable
+	call decrease_counter3
+c3	ld h,(ix+4)
+	ld l,(ix+3)	;get map position we are moving to
+	ld (hl),3	;insert background into map, the player moves onto this so it is deleted next time it moves
+	xor a		;not 255 on RET means we can move
+	ret
+	;
+decrease_counter1
+	call lbbb;dec_counter_zap
+	ld hl,(counter1)
+	dec hl
+	ld (counter1),hl
+	ret
+	;
+decrease_counter2
+	call lbbb;dec_counter_zap
+	ld hl,(counter2)
+	dec hl
+	ld (counter2),hl
+	ret
+	;
+decrease_counter3
+	call lbbb;dec_counter_zap
+	ld hl,(counter3)
+	dec hl
+	ld (counter3),hl
+	ret
+	;
+inc_counter1		;block we're moving to is a collectable
+	ld hl,(counter1)
+	inc hl
+	ld (counter1),hl
+	ld h,(ix+4)
+	ld l,(ix+3)	;get map position we are moving to
+	ld (hl),0	;insert background into map, the player moves onto this so it is deleted next time it moves
+	xor a		;not 255 on RET means we can move
+	ret	
+	;
+inca	inc a
+	ret
+	;
+inc_counter2		;block we're moving to is a collectable
+	ld hl,(counter2)
+	inc hl
+	ld (counter2),hl
+	ld h,(ix+4)
+	ld l,(ix+3)	;get map position we are moving to
+	ld (hl),0	;insert background into map, the player moves onto this so it is deleted next time it moves
+	xor a		;not 255 on RET means we can move
+	ret	
+	;
+	;
+inc_counter3		;block we're moving to is a collectable
+	ld hl,(counter3)
+	inc hl
+	ld (counter3),hl
+	ld h,(ix+4)
+	ld l,(ix+3)	;get map position we are moving to
+	ld (hl),0	;insert background into map, the player moves onto this so it is deleted next time it moves
+	xor a		;not 255 on RET means we can move
+	ret	
+	;
+push_n_lock
+	ld hl,lock_block
+	ld (pbpok+1),hl
+	jr pbm
+	;
+push_and_squash		;like a push block but they squash together and can be lost from the map
+	ld hl,squash_block
+	ld (pbpok+1),hl
+	jr pbm
+push_block
+	ld hl,solid_block
+	ld (pbpok+1),hl	;dodgy shared code thing, self modding
+pbm	ld h,(ix+4)	;point hl at the map position the player is
+	ld l,(ix+3)	;moving to
+	ld a,(ix+13)
+	ld b,h
+	ld c,l		;poin bc at old map position
+	call pbdir	;check if at screen edge, & if not move hl to new position
+	
+
+pbhere	ld a,(hl)	;get block in new position
+	cp 0		;we can only move into block 0
+pbpok	jp nz,solid_block
+	;
+	ld a,(bc)	;
+	ld d,a
+here6	ld (hl),d	;put a push block in the new position
+here5	xor a
+	ld (bc),a	;delete old map position with a zero
+	ld a,d		;get push block number
+	push af
+	call map2screen	;point hl at the new position on the screen
+	ld d,h
+	ld e,l		;now de is there
+	pop af		;get push block number back
+	push af
+	call get_block	;point hl at the correct graphic
+	call print_char	;print (hl) and (de)
+	call screen2att
+	pop af
+	call colsp
+	ret
+squash_block
+	ld d,(hl)
+	jp here5
+lock_block
+	cp 4		;4 is the block we lock the push block into place with
+	jp nz,solid_block	;not 4 means we don't move
+	ld a,(counter3)
+	dec a
+	ld (counter3),a
+	ld d,5			;next block up
+	push hl
+	push de
+	push bc
+	call zzapp
+	pop bc
+	pop de
+	pop hl
+	jp here6
+	;
+pbdir			;this routine checks if we are at the screen edge
+			;and if there is a free space at the next block along
+	or a		;direction cp 0
+	jr z,pbup	;we are moving up
+	dec a		;cp 1
+	jr z,pbr	;we are moving right
+	dec a		;cp 2
+	jr z,pbdn	;we are moving down
+			;none of above? we are moving left then
+pbl
+	ld a,(ix+0)
+	cp 1
+	jr z,pb1
+	dec l		;not at screen edge, check if there's a space left
+	ret
+pb1	ld a,l		;push block at edge, so screen wrap it
+	and 224
+	or 30
+	ld l,a
+	ret
+	;
+pbr	ld a,(ix+0)
+	cp 30		;at right edge?
+	jr z,pb2
+	inc l
+	ret
+pb2	ld a,l
+	and 224
+	or 1
+	ld l,a
+	ret
+	;
+pbup	ld a,(ix+1)	;check ycor
+	cp 1		;move up a square
+			;is it the top row?
+	jr z,pb3
+	ld de,65504
+	add hl,de
+	ret
+pb3	ld hl,mbrow	;hl at map book bottom row -1
+	ld a,l
+	and 224
+	or (ix+0)	;put xocor into l
+	ld l,a
+	ret
+	;
+pbdn	ld a,(ix+1)
+	cp 20
+	jr z,pb4
+	ld de,32
+	add hl,de
+	ret
+pb4	ld hl,mtrow	;map top row +1
+	ld a,l
+	or (ix+0)
+	ld l,a
+	ret
+	;
+force_down
+	ld a,(ix+1)
+	cp 20
+	jp nc,solid_block
+	call delp
+	inc (ix+1)
+	call dddd
+	ret
+	;
+force_up
+	ld a,(ix+1)
+	cp 2
+	jp c,solid_block
+	call delp
+	dec (ix+1)
+	call dddd
+	ret
+	;
+force_left
+	ld a,(ix+0)
+	cp 2
+	jp c,solid_block
+	call delp
+	dec (ix+0)
+	call dddd
+	ret
+	;
+force_right
+	ld a,(ix+0)
+	cp 30
+	jp nc,solid_block
+	call delp
+	inc (ix+0)
+	call dddd
+	ret
+	;
+flag1_keyblock_255
+	ld a,(flag1)
+	or a
+	jp nz,solid_block	;if flag 1 is 255 locked
+	xor a
+	ret
+flag2_keyblock_255
+	ld a,(flag2)
+	or a
+	jp nz,solid_block	;if flag 2 is 255 locked
+	xor a
+	ret
+flag3_keyblock_255
+	ld a,(flag3)
+	or a
+	jp nz,solid_block	;if flag 3 is 255 locked
+	xor a
+	ret
+	;
+flag1_keyblock_0
+	ld a,(flag1)
+	or a
+	jp z,solid_block	;if flag 1 is 0 locked
+	xor a
+	ret
+flag2_keyblock_0
+	ld a,(flag2)
+	or a
+	jp z,solid_block	;if flag 2 is 0 locked
+	xor a
+	ret
+flag3_keyblock_0
+	ld a,(flag3)
+	or a
+	jp z,solid_block	;if flag 3 is 0 locked
+	xor a
+	ret
+	;
+counter1_keyblock
+	ld hl,(counter1)
+	ld a,h
+	or l
+	jp z,solid_block	;if counter1 zero this is a locked door
+	xor a
+	ret
+	;
+counter2_keyblock
+	ld hl,(counter2)
+	ld a,h
+	or l
+	jp z,solid_block	;if counter1 zero this is a locked door
+	xor a
+	ret
+	;
+counter3_keyblock
+	ld hl,(counter3)
+	ld a,h
+	or l
+	jp z,solid_block	;if counter1 zero this is a locked door
+	xor a
+	ret
+	;
+counter1_keyblock_nz
+	ld hl,(counter1)
+	ld a,h
+	or l
+	jp nz,solid_block	;if counter1 not zero this is a locked door
+	xor a
+	ret
+	;
+counter2_keyblock_nz
+	ld hl,(counter2)
+	ld a,h
+	or l
+	jp nz,solid_block	;if counter1 not zero this is a locked door
+	xor a
+	ret
+	;
+counter3_keyblock_nz
+	ld hl,(counter3)
+	ld a,h
+	or l
+	jp nz,solid_block	;if counter1 not zero this is a locked door
+	xor a
+	ret
+	;
+allcountersnzlocked	;counters 1,2,3 need to be zero to allow passage
+	ld hl,(counter1)
+	ld a,h
+	or l
+	ld hl,(counter2)
+	or h
+	or l
+	ld hl,(counter3)
+	or h
+	or l
+	jp nz,solid_block
+	xor a
+	ret
+	
+	;
+timer_block0	;if timer = 0 then the block is open
+	ld hl,(timer_counter)
+	ld a,h
+	or l
+	jp nz,solid_block
+	xor a
+	ret
+	;
+timer_block1	;if timer =0 then block is closed
+	ld hl,(timer_counter)
+	ld a,h
+	or l	
+	jp z,solid_block
+	xor a
+	ret
+	;
+nextlevelup	;level skip block
+	ld a,255
+	ld (level_completed_flag),a	;means we can't move but it shouldn't matter if we're skipping to next level
+	ret
+	;
+nextleveldown
+	ld hl,level
+	dec (hl)
+	dec (hl)
+	ld a,255
+	ld (level_completed_flag),a
+	ret
+	;
+complete_game
+	ld a,(final_level)
+	jp gjp
+	;
+goto_level_1
+	ld a,0
+gjp	ld (level),a
+	ld a,255
+	ld (level_completed_flag),a
+	ret
+goto_level_2
+	ld a,1
+	jp gjp
+goto_level_3
+	ld a,2
+	jp gjp
+goto_level_4
+	ld a,3
+	jp gjp
+goto_level_5
+	ld a,4
+	jp gjp
+goto_level_6
+	ld a,5
+	jp gjp
+goto_level_7
+	ld a,6
+	jp gjp
+goto_level_8
+	ld a,7
+	jp gjp
+goto_level_9
+	ld a,8
+	jp gjp
+	;
+print_message_1
+	ld a,(ix+1)
+	push ix
+	ld ix,msg1
+	call findanddomsg	;find appropriate place on the screen to print speech bubble
+	pop ix
+	ld hl,flag1
+	ld (hl),255	;there may be occasions we want to know if the message has been accessed, so set flag
+	ret
+	;
+print_message_2
+	ld a,(ix+1)
+	push ix
+	ld ix,msg2
+	call findanddomsg	;find appropriate place on the screen to print speech bubble
+	pop ix
+	ld hl,flag2	;there may be occasions we want to know if the message has been accessed, so set flag
+	ld (hl),255
+	ret
+	;
+print_message_3
+	ld a,(ix+1)
+	push ix
+	ld ix,msg3
+	call findanddomsg	;find appropriate place on the screen to print speech bubble
+	pop ix
+	ld hl,flag3		;there may be occasions we want to know if the message has been accessed, so set flag
+	ld (hl),255
+	ret
+	;
+findanddomsg		;arrive with ycor in a
+	cp 2		;if 0 or 1 we can't move 2 up...
+	jr c,pms	;so move down instead
+	dec a
+	dec a		;we want the 'speech bubble' to appear away from the sprite
+pmh	ld b,a
+	ld c,0		;always at the far left xcor
+	call cord2scr	;change xy in BC to DE pointing at the screen
+	push de
+	call screen2att	;change screen pos to att in HL
+	ld b,32		;fill a line with colour
+pmlp	ld (hl),120	;default as bright black on white
+	inc l
+	djnz pmlp
+	pop de		;get screen position back
+	call print_string
+	call zzapp
+	call pause	;allow player to read the the message
+	call draw_game_screen
+	xor a		;allows player to move through block
+	ret
+pms	inc a
+	inc a
+	inc a
+	jr pmh
+	;
+gravity_ON
+	ld a,255
+	ld (gravity_down_flag),a
+	xor a
+	ret
+	;
+gravity_OFF
+	xor a
+	ld (gravity_down_flag),a
+	ret
+	;
+toggle_gravity
+	ld a,(gravity_down_flag)
+	cpl			;toggle between 0 and 255
+	ld (gravity_down_flag),a
+	ld a,255
+	ld (zap_flag),a
+	xor a
+	ret
+	;
+pacman_tablet			;make the guardians scared for a period of time
+	ld a,(scared_flag)
+	or a			;is the scared flag already set?
+	jp nz,top_up_scared_flag	;we don't take the sprite info if so, just top the flag back up
+	ld a,(full_scared_flag)
+	ld (scared_flag),a
+	ld (immunity_flag),a
+	ld h,(ix+4)
+	ld l,(ix+3)	;get map position we are moving to
+	ld (hl),0	;insert background into map, the player moves onto this so it is deleted next time it moves
+	push ix
+	ld ix,badtab
+	ld hl,control_store	;we keep the pre scared control bytes here
+	ld b,11			;max number of baddies
+	ld de,length_of_udg_tab
+ptlp	ld a,(ix+6)		;get control type
+	ld (ix+6),9		;9 is the control routine for scared ghosts
+	ld (hl),a		;and put it in the store
+	inc hl			;next byte in store
+	add ix,de		;next place in udg table
+	djnz ptlp
+	pop ix
+	ret
+	;
+set_immunity
+	ld a,(full_scared_flag)
+	ld (immunity_flag),a
+	ld h,(ix+4)
+	ld l,(ix+3)	;get map position we are moving to
+	ld (hl),0	;insert background into map, the player moves onto this so it is deleted next time it moves
+	xor a
+	ret
+	;
+top_up_scared_flag
+	ld a,(full_scared_flag)
+	ld (scared_flag),a
+	ld (immunity_flag),a
+	ld h,(ix+4)
+	ld l,(ix+3)	;get map position we are moving to
+	ld (hl),0	;insert background into map, the player moves onto this so it is deleted next time it moves
+	xor a
+	ret
+	;
+scared_baddies
+	ld a,(scared_flag)
+	or a			;zero is off
+	ret z
+	dec a
+	ld (scared_flag),a
+	ret nz			;nz here means not 1
+	ld hl,control_store	;the pre scared control info
+	ld ix,badtab
+	ld de,length_of_udg_tab
+	ld b,11			;max number of baddies
+scblp	ld a,(hl)
+	ld (ix+6),a
+	add ix,de
+	inc hl
+	djnz scblp
+	ret
+	;
+extra_life
+	call zzapp
+	ld hl,lives
+	inc (hl)
+	ld h,(ix+4)
+	ld l,(ix+3)	;get map position we are moving to
+	ld (hl),0	;insert background into map, the player moves onto this so it is deleted next time it moves
+	xor a		;not 255 on RET means we can move
+	ret
+	;
+kill_player
+	ld a,255
+	ld (dead_flag),a
+	xor a
+	ret
+	;
+kill_sprite
+	ld hl,(counter2)
+	dec hl
+	ld (counter2),hl
+	call delpy
+	ld (ix+12),255	;on off switch
+	ret
+	;
+gravity
+	ld a,(gravity_down_flag)
+	or a
+	ret z
+	ld a,(loop_counter)
+	ld hl,gravity_strength
+	and (hl)
+	cp (hl)
+	ret nz
+	ld ix,udgtab
+	call delp
+	call down
+	call dddd		;ADDED for v1.2, easy fix for gravity deletion bug
+	ret
+	;
+set_variables
+	ld hl,variablestore
+	ld de,variables
+	ld bc,endvar-variablestore
+	ldir
+	ret
+	;
+set_normal_graphics
+	ld hl,graphics
+	ld (get_block+1),hl	;udg designer starts here
+	ld hl,colours
+	ld (colourseed+1),hl
+	ret
+	;
+variablestore
+		defw	0
+;		defb	1
+		defb	68
+beeppok		defb	0	;movebeep, poke 0 for no beep when walking, <> for beep when walking
+		defb	0
+		defb	255
+		defb	0
+		defb	1
+final_lev_st	defb	9
+live_store	defb	3
+		defb	0	;max 11 (+ the player = 12 udgs, with deleting this is actually 24 udgs before raster reaches top)
+		;defw	0
+c1pok		defw	0	;numbers can be poked in here from editor if this option is being used
+c2pok		defw	0
+c3pok		defw	0
+		defb	0
+		defb	3	;gravity strength
+		defb	3
+		defb	0
+		defb	0
+		defb	0
+		defb	0
+		defw	badtab
+timer_store	defw	20
+		defb	0,0,0	;3 flags
+endvar
+	;
+variables	equ	loop_counter
+loop_counter		defw	0
+;border			defb	1
+paper			defb	68
+movebeep_flag		defb	0	;0 is no beep, <> beeps when walking
+lilbeep_flag		defb	0
+counterzap_flag		defb	255
+zap_flag		defb	0
+level			defb	1
+final_level		defb	9
+lives			defb	7
+number_of_baddies	defb	0	;max 11 (+ the player = 12 udgs, with deleting this is actually 24 udgs before raster reaches top)
+;counter1_target		defw	0
+counter1		defw	0
+counter2		defw	0
+counter3		defw	0
+gravity_down_flag	defb	0
+gravity_strength	defb	3
+delay			defb	3
+level_completed_flag	defb	0
+scared_flag		defb	0	;0 is off, <> 0 is on
+immunity_flag		defb	0	;0 is not immune, <>0 is
+dead_flag		defb	0
+badtabseed		defw	badtab
+timer_counter		defw	20
+flag1			defb	0
+flag2			defb	0
+flag3			defb	0
+	;
+full_scared_flag	defb	200	;amount of time the scared flag is set to when pacman tablet is taken
+game_over_colour	defb	2	;attr of game over screen
+game_complete_colour	defb	56
+game_border		defb	4	;number 0-7, uses ROM 8859
+game_ink		defb	6
+intro_screen_colour	defb	56
+game_colour		defb	56
+	;
+length_of_udg_tab	equ	badtab-udgtab
+maprow			equ	22
+	;
+direction	defb	0	;player direction, used in pacman keys
+map_x	defb	0
+map_y	defb	0
+	;
+udgtab	equ	xcor	
+xcor	defb	0
+ycor	defb	0
+pudg	defb	32	;player char to print
+	defw	0	;map position store
+pspd	defb	0	;player speed, 0 fast, 1,2,3,7,15,31
+	defb	0,0,0
+oldxy	defb	0,0
+	defb	0
+pon	defb	0
+	defb	0
+	;
+badtab	defb	0,0
+	defb	0
+	defw	0
+	defb	0
+	defb	0,0,0	;guardian control byte, then vertical byte, then horizontal byte
+	defb	0,0
+	defb	0	;ix+11, collision effect byte
+	defb	0	;on off switch
+	defb	0
+	;
+	defb	0,0
+	defb	0
+	defw	0
+	defb	0
+	defb	0,0,0
+	defb	0,0
+	defb	0
+	defb	0
+	defb	0
+	;
+	defb	0,0
+	defb	0
+	defw	0
+	defb	0
+	defb	0,0,0
+	defb	0,0
+	defb	0
+	defb	0
+	defb	0
+	;
+	defb	0,0
+	defb	0
+	defw	0
+	defb	0
+	defb	0,0,0
+	defb	0,0
+	defb	0
+	defb	0
+	defb	0
+	;
+	defb	0,0
+	defb	0
+	defw	0
+	defb	0
+	defb	0,0,0
+	defb	0,0
+	defb	0
+	defb	0
+	defb	0
+	;
+	defb	0,0
+	defb	0
+	defw	0
+	defb	0
+	defb	0,0,0
+	defb	0,0
+	defb	0
+	defb	0
+	defb	0
+	;
+	defb	0,0
+	defb	0
+	defw	0
+	defb	0
+	defb	0,0,0
+	defb	0,0
+	defb	0
+	defb	0
+	defb	0
+	;
+	defb	0,0
+	defb	0
+	defw	0
+	defb	0
+	defb	0,0,0
+	defb	0,0
+	defb	0
+	defb	0
+	defb	0
+	;
+	defb	0,0
+	defb	0
+	defw	0
+	defb	0
+	defb	0,0,0
+	defb	0,0
+	defb	0
+	defb	0
+	defb	0
+	;
+	defb	0,0
+	defb	0
+	defw	0
+	defb	0
+	defb	0,0,0
+	defb	0,0
+	defb	0
+	defb	0
+	defb	0
+	;
+	defb	0,0
+	defb	0
+	defw	0
+	defb	0
+	defb	0,0,0
+	defb	0,0
+	defb	0
+	defb	0
+	defb	0
+	;
+	defb	0,0
+	defb	0
+	defw	0
+	defb	0
+	defb	0,0,0
+	defb	0,0
+	defb	0
+	defb	0
+	defb	0
+	;
+property_tab		;used by both teh designer and game, contains properties in order, player first then 12 baddies
+	;
+	defb	0,0
+	defb	32
+	defw	0
+psped	defb	0	;player speed control
+	defb	0,0,0
+	defb	0,0
+	defb	0
+	defb	0
+	defb	0
+	;
+	defb	0,0
+	defb	36
+	defw	0
+	defb	0
+ptc	defb	0,0,0	;control byte
+	defb	0,0
+	defb	0
+	defb	0
+	defb	0
+	;
+	defb	0,0
+	defb	37
+	defw	0
+	defb	0
+	defb	0,0,0
+	defb	0,0
+	defb	0
+	defb	0
+	defb	0
+	;
+	defb	0,0
+	defb	38
+	defw	0
+	defb	0
+	defb	0,0,0
+	defb	0,0
+	defb	0
+	defb	0
+	defb	0
+	;
+	defb	0,0
+	defb	39
+	defw	0
+	defb	0
+	defb	0,0,0
+	defb	0,0
+	defb	0
+	defb	0
+	defb	0
+	;
+	defb	0,0
+	defb	40
+	defw	0
+	defb	0
+	defb	0,0,0
+	defb	0,0
+	defb	0
+	defb	0
+	defb	0
+	;
+	defb	0,0
+	defb	41
+	defw	0
+	defb	0
+	defb	0,0,0
+	defb	0,0
+	defb	0
+	defb	0
+	defb	0
+	;
+	defb	0,0
+	defb	42
+	defw	0
+	defb	0
+	defb	0,0,0
+	defb	0,0
+	defb	0
+	defb	0
+	defb	0
+	;
+	defb	0,0
+	defb	43
+	defw	0
+	defb	0
+	defb	0,0,0
+	defb	0,0
+	defb	0
+	defb	0
+	defb	0
+	;
+	defb	0,0
+	defb	44
+	defw	0
+	defb	0
+	defb	0,0,0
+	defb	0,0
+	defb	0
+	defb	0
+	defb	0
+	;
+	defb	0,0
+	defb	45
+	defw	0
+	defb	0
+	defb	0,0,0
+	defb	0,0
+	defb	0
+	defb	0
+	defb	0
+	;
+	defb	0,0
+	defb	46
+	defw	0
+	defb	0
+	defb	0,0,0
+	defb	0,0
+	defb	0
+	defb	0
+	defb	0
+	;
+	defb	0,0
+	defb	47
+	defw	0
+	defb	0
+	defb	0,0,0
+	defb	0,0
+	defb	0
+	defb	0
+	defb	0
+	;
+control_store	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0	;when pacman 'scared' tablet is on this is where the pre scared control bytes are stored
+	;
+map1	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	255
+	;
+map2	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	255
+	;
+map3	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	255
+	;
+map4	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	255
+	;
+map5	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	255
+	;
+map6	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	255
+	;
+map7	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	255
+	;
+map8	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	255
+	;
+map9	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	defb	255
+	;
+mapstore	defs	6345	;BIG GAP FOR MAPSTORE only needed for multiscreen games
+	;
+;
+font	DEFB 0, 0, 0, 0		 ; 0       0   0       0
+	DEFB 0, 0, 0, 0		 ; 0       0   0       0
+	DEFB 0, 16, 16, 16	 ; 0       16   16       16
+	DEFB 16, 0, 16, 0	 ; 16       0   16       0
+L_3D10: DEFB 0, 36, 36, 0	 ; 0       36   36       0
+	DEFB 0, 0, 0, 0		 ; 0       0   0       0
+	DEFB 0, 36, 126, 36	 ; 0       36   126 36
+	DEFB 36, 126, 36, 0	 ; 36       126 36       0
+	DEFB 0, 8, 62, 40	 ; 0       8   62       40
+	DEFB 62, 10, 62, 8	 ; 62       10   62       8
+	DEFB 0, 98, 100, 8	 ; 0       98   100 8
+	DEFB 16, 38, 70, 0	 ; 16       38   70       0
+	DEFB 0, 16, 40, 16	 ; 0       16   40       16
+	DEFB 42, 68, 58, 0	 ; 42       68   58       0
+	DEFB 0, 8, 16, 0	 ; 0       8   16       0
+L_3D3C: DEFB 0, 0, 0, 0		 ; 0       0   0       0
+	DEFB 0, 4, 8, 8		 ; 0       4   8       8
+	DEFB 8, 8, 4, 0		 ; 8       8   4       0
+	DEFB 0, 32, 16, 16	 ; 0       32   16       16
+	DEFB 16, 16, 32, 0	 ; 16       16   32       0
+	DEFB 0, 0, 20, 8	 ; 0       0   20       8
+L_3D54: DEFB 62, 8, 20, 0	 ; 62       8   20       0
+	DEFB 0, 0, 8, 8		 ; 0       0   8       8
+	DEFB 62, 8, 8, 0	 ; 62       8   8       0
+	DEFB 0, 0, 0, 0		 ; 0       0   0       0
+	DEFB 0, 8, 8, 16	 ; 0       8   8       16
+	DEFB 0, 0, 0, 0		 ; 0       0   0       0
+	DEFB 62, 0, 0, 0	 ; 62       0   0       0
+	DEFB 0, 0, 0, 0		 ; 0       0   0       0
+	DEFB 0, 24, 24, 0	 ; 0       24   24       0
+	DEFB 0, 0, 2, 4		 ; 0       0   2       4
+	DEFB 8, 16, 32, 0	 ; 8       16   32       0
+	DEFB 0, 60, 70, 74	 ; 0       60   70       74
+	DEFB 82, 98, 60, 0	 ; 82       98   60       0
+	DEFB 0, 24, 40, 8	 ; 0       24   40       8
+	DEFB 8, 8, 62, 0	 ; 8       8   62       0
+	DEFB 0, 60, 66, 2	 ; 0       60   66       2
+	DEFB 60, 64, 126, 0	 ; 60       64   126 0
+	DEFB 0, 60, 66, 12	 ; 0       60   66       12
+	DEFB 2, 66, 60, 0	 ; 2       66   60       0
+	DEFB 0, 8, 24, 40	 ; 0       8   24       40
+	DEFB 72, 126, 8, 0	 ; 72       126 8       0
+	DEFB 0, 126, 64, 124	 ; 0       126 64       124
+	DEFB 2, 66, 60, 0	 ; 2       66   60       0
+	DEFB 0, 60, 64, 124	 ; 0       60   64       124
+	DEFB 66, 66, 60, 0	 ; 66       66   60       0
+	DEFB 0, 126, 2, 4	 ; 0       126 2       4
+	DEFB 8, 16, 16, 0	 ; 8       16   16       0
+	DEFB 0, 60, 66, 60	 ; 0       60   66       60
+	DEFB 66, 66, 60, 0	 ; 66       66   60       0
+	DEFB 0, 60, 66, 66	 ; 0       60   66       66
+L_3DCC: DEFB 62, 2, 60, 0	 ; 62       2   60       0
+	DEFB 0, 0, 0, 16	 ; 0       0   0       16
+	DEFB 0, 0, 16, 0	 ; 0       0   16       0
+L_3DD8: DEFB 0, 0, 16, 0	 ; 0       0   16       0
+L_3DDC: DEFB 0, 16, 16, 32	 ; 0       16   16       32
+	DEFB 0, 0, 4, 8		 ; 0       0   4       8
+	DEFB 16, 8, 4, 0	 ; 16       8   4       0
+	DEFB 0, 0, 0, 62	 ; 0       0   0       62
+	DEFB 0, 62, 0, 0	 ; 0       62   0       0
+	DEFB 0, 0, 16, 8	 ; 0       0   16       8
+	DEFB 4, 8, 16, 0	 ; 4       8   16       0
+L_3DF8: DEFB 0, 60, 66, 4	 ; 0       60   66       4
+L_3DFC: DEFB 8, 0, 8, 0		 ; 8       0   8       0
+	DEFB 0, 60, 74, 86	 ; 0       60   74       86
+	DEFB 94, 64, 60, 0	 ; 94       64   60       0
+	DEFB 0, 60, 66, 66	 ; 0       60   66       66
+	DEFB 126, 66, 66, 0	 ; 126 66   66       0
+	DEFB 0, 124, 66, 124	 ; 0       124 66       124
+	DEFB 66, 66, 124, 0	 ; 66       66   124 0
+	DEFB 0, 60, 66, 64	 ; 0       60   66       64
+	DEFB 64, 66, 60, 0	 ; 64       66   60       0
+	DEFB 0, 120, 68, 66	 ; 0       120 68       66
+	DEFB 66, 68, 120, 0	 ; 66       68   120 0
+	DEFB 0, 126, 64, 124	 ; 0       126 64       124
+	DEFB 64, 64, 126, 0	 ; 64       64   126 0
+	DEFB 0, 126, 64, 124	 ; 0       126 64       124
+	DEFB 64, 64, 64, 0	 ; 64       64   64       0
+	DEFB 0, 60, 66, 64	 ; 0       60   66       64
+	DEFB 78, 66, 60, 0	 ; 78       66   60       0
+	DEFB 0, 66, 66, 126	 ; 0       66   66       126
+	DEFB 66, 66, 66, 0	 ; 66       66   66       0
+	DEFB 0, 62, 8, 8	 ; 0       62   8       8
+	DEFB 8, 8, 62, 0	 ; 8       8   62       0
+	DEFB 0, 2, 2, 2		 ; 0       2   2       2
+	DEFB 66, 66, 60, 0	 ; 66       66   60       0
+	DEFB 0, 68, 72, 112	 ; 0       68   72       112
+	DEFB 72, 68, 66, 0	 ; 72       68   66       0
+	DEFB 0, 64, 64, 64	 ; 0       64   64       64
+	DEFB 64, 64, 126, 0	 ; 64       64   126 0
+	DEFB 0, 66, 102, 90	 ; 0       66   102 90
+	DEFB 66, 66, 66, 0	 ; 66       66   66       0
+	DEFB 0, 66, 98, 82	 ; 0       66   98       82
+	DEFB 74, 70, 66, 0	 ; 74       70   66       0
+	DEFB 0, 60, 66, 66	 ; 0       60   66       66
+	DEFB 66, 66, 60, 0	 ; 66       66   60       0
+	DEFB 0, 124, 66, 66	 ; 0       124 66       66
+	DEFB 124, 64, 64, 0	 ; 124 64   64       0
+	DEFB 0, 60, 66, 66	 ; 0       60   66       66
+	DEFB 82, 74, 60, 0	 ; 82       74   60       0
+	DEFB 0, 124, 66, 66	 ; 0       124 66       66
+	DEFB 124, 68, 66, 0	 ; 124 68   66       0
+	DEFB 0, 60, 64, 60	 ; 0       60   64       60
+	DEFB 2, 66, 60, 0	 ; 2       66   60       0
+	DEFB 0, 254, 16, 16	 ; 0       254 16       16
+	DEFB 16, 16, 16, 0	 ; 16       16   16       0
+	DEFB 0, 66, 66, 66	 ; 0       66   66       66
+	DEFB 66, 66, 60, 0	 ; 66       66   60       0
+	DEFB 0, 66, 66, 66	 ; 0       66   66       66
+	DEFB 66, 36, 24, 0	 ; 66       36   24       0
+L_3EB8: DEFB 0, 66, 66, 66	 ; 0       66   66       66
+	DEFB 66, 90, 36, 0	 ; 66       90   36       0
+	DEFB 0, 66, 36, 24	 ; 0       66   36       24
+	DEFB 24, 36, 66, 0	 ; 24       36   66       0
+	DEFB 0, 130, 68, 40	 ; 0       130 68       40
+	DEFB 16, 16, 16, 0	 ; 16       16   16       0
+	DEFB 0, 126, 4, 8	 ; 0       126 4       8
+	DEFB 16, 32, 126, 0	 ; 16       32   126 0
+	DEFB 0, 14, 8, 8	 ; 0       14   8       8
+	DEFB 8, 8, 14, 0	 ; 8       8   14       0
+	DEFB 0, 0, 64, 32	 ; 0       0   64       32
+	DEFB 16, 8, 4, 0	 ; 16       8   4       0
+	DEFB 0, 112, 16, 16	 ; 0       112 16       16
+	DEFB 16, 16, 112, 0	 ; 16       16   112 0
+	DEFB 0, 16, 56, 84	 ; 0       16   56       84
+	DEFB 16, 16, 16, 0	 ; 16       16   16       0
+L_3EF8: DEFB 0, 0, 0, 0		 ; 0       0   0       0
+L_3EFC: DEFB 0, 0, 0, 255	 ; 0       0   0       255
+	DEFB 0, 28, 34, 120	 ; 0       28   34       120
+	DEFB 32, 32, 126, 0	 ; 32       32   126 0
+	DEFB 0, 0, 56, 4	 ; 0       0   56       4
+	DEFB 60, 68, 60, 0	 ; 60       68   60       0
+L_3F10: DEFB 0, 32, 32, 60	 ; 0       32   32       60
+	DEFB 34, 34, 60, 0	 ; 34       34   60       0
+	DEFB 0, 0, 28, 32	 ; 0       0   28       32
+	DEFB 32, 32, 28, 0	 ; 32       32   28       0
+	DEFB 0, 4, 4, 60	 ; 0       4   4       60
+	DEFB 68, 68, 60, 0	 ; 68       68   60       0
+	DEFB 0, 0, 56, 68	 ; 0       0   56       68
+	DEFB 120, 64, 60, 0	 ; 120 64   60       0
+	DEFB 0, 12, 16, 24	 ; 0       12   16       24
+	DEFB 16, 16, 16, 0	 ; 16       16   16       0
+L_3F38: DEFB 0, 0, 60, 68	 ; 0       0   60       68
+	DEFB 68, 60, 4, 56	 ; 68       60   4       56
+	DEFB 0, 64, 64, 120	 ; 0       64   64       120
+	DEFB 68, 68, 68, 0	 ; 68       68   68       0
+	DEFB 0, 16, 0, 48	 ; 0       16   0       48
+	DEFB 16, 16, 56, 0	 ; 16       16   56       0
+	DEFB 0, 4, 0, 4		 ; 0       4   0       4
+	DEFB 4, 4, 36, 24	 ; 4       4   36       24
+	DEFB 0, 32, 40, 48	 ; 0       32   40       48
+	DEFB 48, 40, 36, 0	 ; 48       40   36       0
+	DEFB 0, 16, 16, 16	 ; 0       16   16       16
+	DEFB 16, 16, 12, 0	 ; 16       16   12       0
+	DEFB 0, 0, 104, 84	 ; 0       0   104 84
+	DEFB 84, 84, 84, 0	 ; 84       84   84       0
+L_3F70: DEFB 0, 0, 120, 68	 ; 0       0   120 68
+	DEFB 68, 68, 68, 0	 ; 68       68   68       0
+	DEFB 0, 0, 56, 68	 ; 0       0   56       68
+	DEFB 68, 68, 56, 0	 ; 68       68   56       0
+L_3F80: DEFB 0, 0, 120, 68	 ; 0       0   120 68
+	DEFB 68, 120, 64, 64	 ; 68       120 64       64
+	DEFB 0, 0, 60, 68	 ; 0       0   60       68
+	DEFB 68, 60, 4, 6	 ; 68       60   4       6
+	DEFB 0, 0, 28, 32	 ; 0       0   28       32
+	DEFB 32, 32, 32, 0	 ; 32       32   32       0
+	DEFB 0, 0, 56, 64	 ; 0       0   56       64
+	DEFB 56, 4, 120, 0	 ; 56       4   120 0
+	DEFB 0, 16, 56, 16	 ; 0       16   56       16
+	DEFB 16, 16, 12, 0	 ; 16       16   12       0
+	DEFB 0, 0, 68, 68	 ; 0       0   68       68
+	DEFB 68, 68, 56, 0	 ; 68       68   56       0
+L_3FB0: DEFB 0, 0, 68, 68	 ; 0       0   68       68
+	DEFB 40, 40, 16, 0	 ; 40       40   16       0
+L_3FB8: DEFB 0, 0, 68, 84	 ; 0       0   68       84
+	DEFB 84, 84, 40, 0	 ; 84       84   40       0
+L_3FC0: DEFB 0, 0, 68, 40	 ; 0       0   68       40
+	DEFB 16, 40, 68, 0	 ; 16       40   68       0
+	DEFB 0, 0, 68, 68	 ; 0       0   68       68
+	DEFB 68, 60, 4, 56	 ; 68       60   4       56
+	DEFB 0, 0, 124, 8	 ; 0       0   124 8
+	DEFB 16, 32, 124, 0	 ; 16       32   124 0
+	DEFB 0, 14, 8, 48	 ; 0       14   8       48
+	DEFB 8, 8, 14, 0	 ; 8       8   14       0
+	DEFB 0, 8, 8, 8		 ; 0       8   8       8
+	DEFB 8, 8, 8, 0		 ; 8       8   8       0
+	DEFB 0, 112, 16, 12	 ; 0       112 16       12
+	DEFB 16, 16, 112, 0	 ; 16       16   112 0
+	DEFB 0, 20, 40, 0	 ; 0       20   40       0
+L_3FF4: DEFB 0, 0, 0, 0		 ; 0       0   0       0
+L_3FF8: DEFB 60, 66, 153, 161	 ; 60       66   153 161
+	DEFB 161, 153, 66, 60	 ; 161 153 66       6
+	;
+	DEFB 48, 72, 64, 48	 ; 48       72   64       48
+	DEFB 8, 72, 48, 0	 ; 8       72   48       0
+
+	DEFB 112, 72, 72, 112	 ; 112 72   72       112
+	DEFB 72, 72, 112, 0	 ; 72       72   112 
+;udgs, start on a word boundary (768 above font)
+graphics
+rept	16
+	defb	112,072,072,112,072,072,112,000
+	defb	000,112,072,072,112,072,072,112	
+endrep
+	;
+spritegraphics
+rept	8
+	defb	048,072,064,048,008,072,048,000
+	defb	000,048,072,064,048,008,072,048
+endrep
+	;
+introstring
+	defb	1,0,'C.G.D - Classic Game Designer',254,3
+	defb	'V 1.3.  Dave Hughes 2013'
+	defb	6,8,'1-Design sprites',254,6
+	defb	'2-Design blocks',254,6
+	defb	'3-Design font',254,6
+	defb	'4-Map Editor',254,6
+	defb	'5-Event manager',254,6
+	defb	'6-Item counters',254,6
+	defb	'7-Variables',254,6
+	defb	'8-Game text',254,6
+	defb	'9-Effects',254,6
+	defb	'I-introscreen text',254,6
+	defb	'C-Game colours',254,6
+	defb	'T-Test game',254,6
+	defb	'S-Save game',255
+	;
+teststring
+	defb	0,8,	'You are about  to test the game,'
+	defb		'now would be a good time to save'
+	defb		'a snapshot.',254,0
+	defb		'E to return, a/o to continue',254,0
+	defb		'Press Z to skip level',255
+	;
+savestr	
+	defb	0,8,	'You are about  to test the game,'
+	defb		'now would be a good time to save'
+	defb		'a snapshot.',254,0
+	defb		'Press S to save, a/o goes back',254,0
+	defb		'The program will return to BASIC'
+	defb		'>You must CLEAR 32511',254,0
+	defb		'>Then Save CODE, 32512,21100',254,0
+	defb		'To start game:',254,0
+	defb		'>RANDOMIZE USR 34051',255
+	;
+introedstr
+	defb	0,0,	'Intro screen editor'
+	defb	0,2,	'You have 256 chars to fill with '
+	defb		'information, Enter to exit',255
+	;
+gamecolourstr
+	defb	0,0,	'Game colours'
+	defb	0,4,	'1-Introscreen colour'
+	defb	0,5,	'2-Game colour'
+	defb	0,6,	'3-Game over colour'
+	defb	0,7,	'4-Game complete colour',255
+	;
+string1	defb	7,8,	'INTROSCREEN COLOUR',255
+string2	defb	11,8,	'GAME COLOUR',255
+string3	defb	8,8,	'GAME OVER COLOUR',255
+string4	defb	6,8,	'GAME COMPLETE COLOUR',255
+	;
+gcedstr	defb	0,16,	'I-Ink, P-Paper, B-Bright,F-Flash'
+	defb		'E-Exit',255
+	;
+udgdesignerstr
+	defb	0,8,	'5/6-Player:',254,0
+	defb		'T/Y-Baddy:'
+	defb	9,12,'Block Designer'
+	defb	0,14,'Control cursor: QAOP-Spc',254,0
+	defb	'0-Ink, 9-Paper,8-Bright, 7-Flash'
+	defb	'X-Clear, F-Fill, G-Random imp',254,0
+	defb	'C-Copy, V-Paste, M-Mirror,K-Flip'
+	defb	'H-Hash Block, E-Exit',254,0
+	defb	'1&2 - Next udg, 32 udgs max'
+	defb	18,22,'Clipboard ',255
+	;
+sprstring
+	defb	0,8,	'          '
+	defb	0,9,	'6-Type:  ',254,0
+	defb		'4-Effect:'
+	defb	9,12,'Sprite Designer '
+	defb	0,18,'1&2 - Next udg             ',254,0
+	defb	'UDGs 0,1,2,3 are for player rlud'
+	defb	'then 11 baddy udgs.E-Exit,H-Hash'
+	defb	18,22,'Clipboard ',255
+	;
+fontdesignerstr
+	defb	10,12,'FONT Designer'
+	defb	0,14,'Control cursor: QAOP-Spc',254,0
+	defb	'X-Clear, F-Fill, H-Hash',254,0
+	defb	'C-Copy, V-Paste, M-Mirror,K-Flip'
+	defb	'E-Exit, I-Italic all, B-Bold all',254,0
+	defb	'R-Restore ROM font',254,0
+	defb	'1&2 - next char through 0-95'
+	defb	18,22,'Clipboard ',255
+	;
+mdisstr		defb	0,0,'MAP DESIGNER'
+		defb	0,2,'There are max 9 screens to edit,'
+		defb	'a single  screen  game  they are'
+		defb	'simply in order 1-9.',254,0
+		defb	'For a flip  screen  game the map'
+		defb	'is arranged thus:'
+		defb	14,8,'123',254,14
+		defb	'456',254,14
+		defb	'789'
+		defb	0,14,'Press  the number  of the screen'
+		defb	'you want to edit - 1-9'
+		defb	10,18,'Or E to exit',255
+	;
+mapstring
+	defb	0,22,'QAOP Space,1&2 Block select>',254,0
+	defb	'R-fillrow, F-Fillcolumn, X-CLEAR',255
+	;
+eventintrostr
+	defb	9,0,'Event Manager'
+	defb	0,2,'1-Screen complete when:'
+	defb	0,5,'2-Screen fails when:'
+	defb	0,8,'3-When player meets screen edge:'
+	defb	0,11,'4-When baddy meets screen edge: ',255
+	;
+surestring
+	defb	0,23
+sure	defb	'Return to menu? Y/N             ',255
+delmess	defb	0,23,'                                ',255
+	;
+numstr	defb	22,0,0,'CHR number: '
+numstrend
+	;
+speedstr	defb	10,8,'5-Sprite speed       ',255
+	;
+keystrings
+	defb	255
+	defb	'Multiple key press',255
+	defb	'Pacman style keys ',255
+	defb	'Single key press  ',255
+	defb	'Turn based keys   ',255
+	;
+gcontstrings
+	defb	255
+	defb	'vertical_patrol       ',255
+	defb	'horizontal_patrol     ',255
+	defb	'diagonal_patrol       ',255
+	defb	'horizontal_snake      ',255
+	defb	'vertical_snake        ',255
+	defb	'diagonal_chaser       ',255
+	defb	'unidirectional wander ',255
+	defb	'unidirectional chaser ',255
+	defb	'vibrating baddy       ',255
+	defb	'runs away from you    ',255
+	defb	'runs away and wanders ',255
+	defb	'moves in fits & starts',255
+	defb	'down only             ',255
+	defb	'up only               ',255
+	defb	'right only            ',255
+	defb	'left only             ',255
+	;
+guardian_coll_strings
+	defb	255
+	defb	'do nothing   ',255
+	defb	'kill player  ',255
+	defb	'kill guardian',255
+	defb	'dec counter1 ',255
+	;
+game_complete_strings
+	defb	255
+	defb	'do nothing      ',255
+	defb	'counter1 zero   ',255
+	defb	'counter2 zero   ',255
+	defb	'counter3 zero   ',255
+	defb	'timer zero      ',255
+	defb	'baddies all_dead',255
+	defb	'player at bottom',255
+	defb	'player at top   ',255
+	defb	'player at right ',255
+	defb	'player at left  ',255
+	defb	'baddy_at_bottom ',255
+	defb	'baddy_at_right  ',255
+	defb	'baddy_at_left   ',255
+	defb	'baddy_at_top    ',255
+	;
+screen_edge_strings
+	defb	255
+	defb	'do nothing ',255
+	defb	'screen wrap',255
+	defb	'random wrap',255
+	defb	'next screen',255
+	;
+effectstrings
+	defb	255			;dummy, to allow for defb 0
+	defb	'do nothing        ',255
+	defb	'solid_block       ',255
+	defb	'change baddy types',255
+	defb	'makespritedown    ',255
+	defb	'makespriteup      ',255
+	defb	'makespriteright   ',255
+	defb	'makespriteleft    ',255
+	defb	'makespriterandom  ',255
+	defb	'dec counter1      ',255
+	defb	'inc counter1      ',255
+	defb	'dec counter2      ',255
+	defb	'inc counter2      ',255
+	defb	'dec counter3      ',255
+	defb	'inc counter3      ',255
+	defb	'zero counter 1    ',255
+	defb	'zero counter 2    ',255
+	defb	'zero counter 3    ',255
+	defb	'force down        ',255
+	defb	'force up          ',255
+	defb	'force left        ',255
+	defb	'force right       ',255
+	defb	'counter1=0, locked',255
+	defb	'counter2=0, locked',255
+	defb	'counter3=0, locked',255
+	defb	'counter1<>0,locked',255
+	defb	'counter2<>0,locked',255
+	defb	'counter3<>0,locked',255
+	defb	'counter123nzlocked',255
+	;
+	defb	'set flag1 ON      ',255
+	defb	'set flag2 ON      ',255
+	defb	'set flag3 ON      ',255
+	defb	'set flag1 OFF     ',255
+	defb	'set flag2 OFF     ',255
+	defb	'set flag3 OFF     ',255
+	defb	'set all flags ON  ',255
+	defb	'set all flags OFF ',255
+	defb	'toggle all flags  ',255
+	defb	'flag1 ON = locked',255
+	defb	'flag2 ON = locked',255
+	defb	'flag3 ON = locked',255
+	defb	'flag1 OFF = locked',255
+	defb	'flag2 OFF = locked',255
+	defb	'flag3 OFF = locked',255
+	;
+	defb	'open if timer = 0 ',255
+	defb	'open if timer <> 0',255
+	defb	'decrease timer    ',255
+	defb	'increase timer    ',255
+	defb	'next level up     ',255
+	defb	'next level down   ',255
+	defb	'goto level 1      ',255
+	defb	'goto level 2      ',255
+	defb	'goto level 3      ',255
+	defb	'goto level 4      ',255
+	defb	'goto level 5      ',255
+	defb	'goto level 6      ',255
+	defb	'goto level 7      ',255
+	defb	'goto level 8      ',255
+	defb	'goto level 9      ',255
+	defb	'complete_game     ',255
+	defb	'kill sprite       ',255
+	defb	'kill all baddies  ',255
+	defb	'kill player       ',255
+	defb	'extra life        ',255
+	defb	'gravity ON        ',255
+	defb	'gravity OFF       ',255
+	defb	'toggle gravity    ',255
+	defb	'Pacman tablet     ',255
+	defb	'immunity          ',255
+	defb	'slow block        ',255
+	defb	'next block down   ',255
+	defb	'next block up     ',255
+	defb	'push block        ',255
+	defb	'push ',39,'n',39,' squash',255
+	defb	'push ',39,'n',39,' lock     ',255
+	defb	'print message 1  ',255
+	defb	'print message 2  ',255
+	defb	'print message 3  ',255
+	;
+seffstr	defb	5,0,	'Special FX, E to exit'
+	defb	0,2,	'1-level fail effect 1:'
+	defb	0,4,	'2-level fail effect 2:'
+	defb	0,6,	'3-level complete effect 1:'
+	defb	0,8,	'4-level complete effect 2:',255
+	;
+specialFX_strings
+	defb	255
+	defb	'do nothing',255
+	defb	'red screen',255
+	defb	'screen flash',255
+	defb	'border crash',255
+	defb	'scatter cls',255
+	defb	'shift cls',255
+	defb	'tv noise',255
+	defb	'zap noise',255
+	defb	'crash noise',255
+	defb	'tick noise',255
+	defb	'cycle animation',255
+	defb	'short delay',255
+	defb	'wait for key',255
+	;
+screen_name_string	defb	0,0,	'Screen/Level names',254,0
+			defb		'Press level # you want to edit',254,0
+			defb		'Press B to edit game bottom line'
+			defb		'32 chars max, E to exit',255
+	;
+varstring	defb	0,0,	'Variables (E -Exit)'
+		defb	0,3,	'RT - Set timer to:',254,0
+		defb		'L - Number of levels:',254,0
+		defb		'OP - Number of lives:',255
+	;
+counterstring	defb	0,0,	'Item counters'
+		defb	0,3,	'N-Set counters to a number',254,0
+		defb		'B-Set counters to screen blocks',254,0
+		defb		'E-Exit'
+		defb	0,7,	'At the start of each level:',255
+	;
+counternumstr	defb	0,9,	'Counter1 is set to',254,0	;counters set to raw numbers
+		defb		'Counter2 is set to',254,0
+		defb		'Counter3 is set to'
+		defb	0,14,	'Press 1&2 to dec/inc counter1',254,0
+		defb		'Press Q&W to dec/inc counter2',254,0
+		defb		'Press A&S to dec/inc counter3',255
+counterblockstr
+		defb	0,9,	'Counter1 is set to block',254,0;counters set to number of a givenblock
+		defb		'Counter2 is set to block',254,0
+		defb		'Counter3 is set to block'
+contstr		defb	0,14,	'Press 1&2 to dec/inc block',254,0
+		defb		'Press Q&W to dec/inc block',254,0
+		defb		'Press A&S to dec/inc block',255
+	;
+	;
+number_of_block_effects	equ	(endeffecttab-effecttab)/2
+effecttab
+	defw	do_nothing
+	defw	solid_block
+	defw	change_guardian_type
+	defw	makespritedown
+	defw	makespriteup
+	defw	makespriteright
+	defw	makespriteleft
+	defw	makespriterandom
+	defw	dec_counter1
+	defw	inc_counter1
+	defw	dec_counter2
+	defw	inc_counter2
+	defw	dec_counter3
+	defw	inc_counter3
+	defw	zero_counter1
+	defw	zero_counter2
+	defw	zero_counter3
+	defw	force_down
+	defw	force_up
+	defw	force_left
+	defw	force_right
+	defw	counter1_keyblock		;solid block if counter1 is zero (ie has no keys)
+	defw	counter2_keyblock		;solid block if counter2 is zero (ie has no keys)
+	defw	counter3_keyblock		;solid block if counter3 is zero (ie has no keys)
+	defw	counter1_keyblock_nz		;solid block if counter 1 is not zero
+	defw	counter2_keyblock_nz		;solid block if counter 2 is not zero
+	defw	counter3_keyblock_nz		;solid block if counter 1 is not zero
+	defw	allcountersnzlocked		;counters 1,2,3 must all be zero for passage through it
+	;
+	defw	set_flag1
+	defw	set_flag2
+	defw	set_flag3
+	defw	unset_flag1
+	defw	unset_flag2
+	defw	unset_flag3
+	defw	all_flags_ON
+	defw	all_flags_OFF
+	defw	toggle_ALL_flags
+	defw	flag1_keyblock_255
+	defw	flag2_keyblock_255
+	defw	flag3_keyblock_255
+	defw	flag1_keyblock_0
+	defw	flag2_keyblock_0
+	defw	flag3_keyblock_0
+	;
+	defw	timer_block0		;solid block if timer is zero
+	defw	timer_block1		;solid block if time is not zero
+	defw	decrease_timer
+	defw	increase_timer
+	defw	nextlevelup
+	defw	nextleveldown
+	defw	goto_level_1
+	defw	goto_level_2
+	defw	goto_level_3
+	defw	goto_level_4
+	defw	goto_level_5
+	defw	goto_level_6
+	defw	goto_level_7
+	defw	goto_level_8
+	defw	goto_level_9
+	defw	complete_game
+
+	defw	kill_sprite		;whether sprite or guardian we turn it off
+	defw	kill_all_baddies
+	defw	kill_player
+	defw	extra_life
+	defw	gravity_ON
+	defw	gravity_OFF
+	defw	toggle_gravity
+	defw	pacman_tablet		;makes ghost scared
+	defw	set_immunity
+	defw	slow_block
+	defw	decrease_block_number
+	defw	increase_block_number
+	defw	push_block
+	defw	push_and_squash
+	defw	push_n_lock
+	defw	print_message_1
+	defw	print_message_2
+	defw	print_message_3
+endeffecttab
+	;
+number_of_FX	equ	(endFX-specialFX_tab)/2
+specialFX_tab
+	defw	do_nothing
+	defw	red_screen
+	defw	screen_flash
+	defw	bordercrash
+	defw	dwindle_cls
+	defw	shift_cls
+	defw	tv_noise
+	defw	zzapp
+	defw	rom_crash
+	defw	lbbb
+	defw	rotate_player
+	defw	gpause
+	defw	pause
+endFX
+	;
+map_clipboard	defs	710
+	defb	255,255,255,255
